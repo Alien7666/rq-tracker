@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.rqtracker</groupId>
+    <artifactId>rq-tracker</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>RQ Tracker</name>
+    <description>RQ 需求單開發進度追蹤工具</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <javafx.version>21.0.5</javafx.version>
+        <jackson.version>2.17.2</jackson.version>
+        <junit.version>5.10.2</junit.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <main.class>com.rqtracker/com.rqtracker.RQTrackerApp</main.class>
+    </properties>
+
+    <dependencies>
+        <!-- JavaFX -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <!-- Jackson JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Java 編譯器 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- JavaFX 執行外掛（開發用：mvn javafx:run） -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                    <options>
+                        <option>-Dfile.encoding=UTF-8</option>
+                        <option>-Duser.language=zh</option>
+                        <option>-Duser.country=TW</option>
+                        <option>-Xmx256m</option>
+                        <option>-Xms32m</option>
+                        <option>-XX:+UseG1GC</option>
+                        <option>-XX:MaxGCPauseMillis=100</option>
+                    </options>
+                </configuration>
+            </plugin>
+
+            <!-- 測試執行 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!-- jlink：產生自含 JRE 的 Runtime Image（mvn javafx:jlink） -->
+            <!-- 輸出至 target/rq-tracker-runtime/                        -->
+
+            <!-- jpackage：將 Runtime Image 打包成 Windows MSI             -->
+            <!-- 執行：mvn exec:exec@jpackage（需先執行 javafx:jlink）      -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.1</version>
+                <executions>
+                    <execution>
+                        <id>jpackage</id>
+                        <phase>none</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>jpackage</executable>
+                            <arguments>
+                                <!-- 使用 jlink 產生的 runtime image -->
+                                <argument>--runtime-image</argument>
+                                <argument>${project.build.directory}/image</argument>
+
+                                <!-- 主模組 -->
+                                <argument>--module</argument>
+                                <argument>com.rqtracker/com.rqtracker.RQTrackerApp</argument>
+
+                                <!-- 輸出格式與基本資訊 -->
+                                <!-- msi 需要 WiX 3.x：https://wixtoolset.org/ -->
+                                <!-- 若未安裝 WiX，可改為 app-image（可攜式資料夾） -->
+                                <argument>--type</argument>
+                                <argument>msi</argument>
+                                <argument>--name</argument>
+                                <argument>RQTracker</argument>
+                                <argument>--app-version</argument>
+                                <argument>1.0.0</argument>
+                                <argument>--vendor</argument>
+                                <argument>RQTracker</argument>
+                                <argument>--description</argument>
+                                <argument>RQ 需求單開發進度追蹤工具</argument>
+
+                                <!-- Windows 安裝選項 -->
+                                <argument>--win-dir-chooser</argument>
+                                <argument>--win-menu</argument>
+                                <argument>--win-shortcut</argument>
+
+                                <!-- 圖示（需先放入 packaging/windows/rq-tracker.ico） -->
+                                <argument>--icon</argument>
+                                <argument>${project.basedir}/packaging/windows/rq-tracker.ico</argument>
+
+                                <!-- 輸出目錄 -->
+                                <argument>--dest</argument>
+                                <argument>${project.build.directory}/installer</argument>
+
+                                <!-- JVM 選項 -->
+                                <argument>--java-options</argument>
+                                <argument>-Dfile.encoding=UTF-8</argument>
+                                <argument>--java-options</argument>
+                                <argument>-Duser.language=zh</argument>
+                                <argument>--java-options</argument>
+                                <argument>-Duser.country=TW</argument>
+                                <argument>--java-options</argument>
+                                <argument>-Xmx256m</argument>
+                                <argument>--java-options</argument>
+                                <argument>-Xms32m</argument>
+                                <argument>--java-options</argument>
+                                <argument>-XX:+UseG1GC</argument>
+                                <argument>--java-options</argument>
+                                <argument>-XX:MaxGCPauseMillis=100</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

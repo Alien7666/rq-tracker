@@ -1,0 +1,1551 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   RQ Tracker — 莫蘭迪石板藍灰主題 v2
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 00. 全域 CSS 自訂屬性 ────────────────────────────────────────────────── */
+.root {
+    /* 背景層次（4 層） */
+    -rq-bg:            #1a1f26;
+    -rq-surface:       #242b34;
+    -rq-surface2:      #1e242d;
+    -rq-surface3:      #2c3441;   /* hover 用 */
+
+    /* 文字層次（WCAG AA 合規） */
+    -rq-text:          #e2e8f2;   /* 對比 bg ≈ 12.4:1 */
+    -rq-text-muted:    #a8b8cc;   /* 對比 surface ≈ 5.3:1 ✓ */
+    -rq-text-dim:      #6e85a0;   /* 輔助文字，caption only */
+
+    /* 邊框 */
+    -rq-border:        #3a4a5e;
+    -rq-border-dark:   #4d5f75;
+
+    /* 語義色系 */
+    -rq-accent:        #5b8fac;
+    -rq-accent-hover:  #7aaec8;
+    -rq-accent-light:  #5b8fac22;
+    -rq-accent-muted:  #5b8fac44;
+
+    -rq-success:       #5a9e78;
+    -rq-success-hover: #73b892;
+    -rq-success-light: #5a9e7820;
+
+    -rq-warn:          #c49a5e;
+    -rq-warn-light:    #c49a5e1a;
+
+    -rq-danger:        #b86a6a;
+    -rq-danger-light:  #b86a6a20;
+
+    -rq-optional:      #7d88c0;
+    -rq-optional-light:#7d88c01a;
+
+    /* 字型尺寸層次 */
+    -rq-font-h1:      20px;
+    -rq-font-h2:      17px;
+    -rq-font-h3:      15px;
+    -rq-font-body:    14px;
+    -rq-font-caption: 13px;
+    -rq-font-hint:    12px;
+    -rq-font-micro:   11px;
+
+    -fx-background-color: -rq-bg;
+    -fx-text-fill: -rq-text;
+    -fx-font-family: "Microsoft JhengHei UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -fx-font-size: 14px;
+}
+
+/* ── 01. 應用程式根容器 ────────────────────────────────────────────────────── */
+.app-root {
+    -fx-background-color: -rq-bg;
+}
+
+/* ── 02. Header ─────────────────────────────────────────────────────────────── */
+.app-header {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 8, 0, 0, 3);
+}
+.app-title {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+.app-title-sub {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+/* 備份狀態徽章 */
+.backup-status {
+    -fx-font-size: 11px;
+    -fx-text-fill: -rq-text-dim;
+    -fx-padding: 3 9;
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 6;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+.backup-status.ok {
+    -fx-text-fill: -rq-success;
+    -fx-border-color: -rq-success-light;
+}
+.backup-status.warn {
+    -fx-text-fill: -rq-warn;
+    -fx-border-color: -rq-warn-light;
+}
+.btn-header-menu {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 6 14;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+.btn-header-menu:hover {
+    -fx-border-color: -rq-accent;
+    -fx-text-fill: -rq-text;
+    -fx-background-color: -rq-surface3;
+}
+.btn-new-rq {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: #0f1620;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 7 18;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.btn-new-rq:hover {
+    -fx-background-color: -rq-accent-hover;
+    -fx-effect: dropshadow(gaussian, -rq-accent, 8, 0.25, 0, 2);
+}
+
+/* ── 03. 標籤頁列 ─────────────────────────────────────────────────────────── */
+.rq-tab-bar-wrap {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 8 0 8;
+}
+.rq-tabs-wrap {
+    /* RQTabBar StackPane 外層 */
+}
+.rq-tabs {
+    -fx-spacing: 4;
+}
+.rq-tabs-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.rq-tab {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 8 8 0 0;
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 7 16 7 14;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-text-fill: -rq-text-muted;
+}
+.rq-tab:hover {
+    -fx-background-color: -rq-surface3;
+    -fx-border-color: -rq-border-dark;
+    -fx-text-fill: -rq-text;
+}
+.rq-tab.active {
+    /* 頂部 2px accent 色條：使用雙層背景模擬 */
+    -fx-background-color: -rq-accent, -rq-surface;
+    -fx-background-insets: 0, 2 0 0 0;
+    -fx-background-radius: 8 8 0 0, 6 6 0 0;
+    -fx-border-color: -rq-accent;
+    -fx-border-width: 1 1 0 1;
+    -fx-text-fill: -rq-text;
+}
+.tab-label {
+    -fx-text-fill: inherit;
+    -fx-font-size: 13px;
+}
+.tab-progress {
+    -fx-font-size: 11px;
+    -fx-text-fill: -rq-text-dim;
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 4;
+    -fx-padding: 1 5;
+}
+.rq-tab.active .tab-progress {
+    -fx-text-fill: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+.tab-del {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-padding: 0 2;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-min-width: 18;
+    -fx-min-height: 18;
+    -fx-max-width: 18;
+    -fx-max-height: 18;
+    -fx-alignment: center;
+    -fx-background-radius: 4;
+}
+.tab-del:hover {
+    -fx-text-fill: -rq-danger;
+    -fx-background-color: -rq-danger-light;
+}
+.rq-tab-scroll-btn {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-padding: 4 8;
+    -fx-font-size: 15px;
+}
+.rq-tab-scroll-btn:hover {
+    -fx-background-color: -rq-surface3;
+    -fx-text-fill: -rq-text;
+}
+
+/* ── 04. Section Card（可折疊卡片）────────────────────────────────────────── */
+.section-card {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 6, 0, 0, 2);
+}
+/* 左側類型色條 — 共用流程（藍灰） */
+.section-card.type-flow {
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-accent;
+    -fx-border-width: 1 1 1 3;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10 10 10 8;
+}
+/* 左側類型色條 — 最終交付（橙灰） */
+.section-card.type-delivery {
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-warn;
+    -fx-border-width: 1 1 1 3;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10 10 10 8;
+}
+/* P0 fix: Java 使用 .section-header（原 CSS 的 .section-card-header）*/
+.section-header {
+    -fx-padding: 12 16 12 18;
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-border-radius: 10 10 0 0;
+    -fx-background-radius: 10 10 0 0;
+}
+.section-header:hover {
+    -fx-background-color: -rq-surface3;
+}
+/* P0 fix: Java 使用 .section-body（原 CSS 的 .section-card-body）*/
+.section-body {
+    -fx-padding: 12 20 16 20;
+}
+.section-title {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.section-icon {
+    -fx-font-size: 16px;
+}
+/* P0 fix: Java 使用 .section-arrow（原 CSS 的 .collapse-arrow）*/
+.section-arrow {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+    -fx-min-width: 20;
+    -fx-alignment: center;
+}
+
+/* ── 05. 進度徽章 ─────────────────────────────────────────────────────────── */
+.section-progress {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 2 8;
+    -fx-font-size: 12px;
+    -fx-text-fill: -rq-text-muted;
+}
+.section-progress.done {
+    -fx-background-color: -rq-success-light;
+    -fx-border-color: -rq-success;
+    -fx-text-fill: -rq-success;
+}
+.progress-badge {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 2 8;
+    -fx-font-size: 12px;
+    -fx-text-fill: -rq-text-muted;
+}
+.progress-badge.done {
+    -fx-background-color: -rq-success-light;
+    -fx-border-color: -rq-success;
+    -fx-text-fill: -rq-success;
+}
+.section-done-ts {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 12px;
+}
+
+/* ── 06. 版本卡片 ─────────────────────────────────────────────────────────── */
+.version-card {
+    -fx-background-color: derive(-rq-surface, -4%);
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0, 0, 1);
+}
+.version-header {
+    -fx-padding: 10 14 10 12;
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-background-radius: 8 8 0 0;
+}
+.version-header:hover {
+    -fx-background-color: -rq-surface3;
+}
+.version-badge {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-min-width: 30;
+    -fx-min-height: 30;
+    -fx-max-width: 30;
+    -fx-max-height: 30;
+    -fx-alignment: center;
+    -fx-background-radius: 15;
+    -fx-effect: dropshadow(gaussian, derive(-rq-accent,-40%), 4, 0.3, 0, 1);
+}
+.version-name {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.version-prog-bar {
+    -fx-pref-height: 8;
+    -fx-background-color: -rq-surface2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+.version-prog-bar .bar {
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
+    -fx-background-radius: 5;
+}
+.version-prog-bar.done .bar {
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
+}
+.version-prog-bar .track {
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 5;
+}
+.version-prog-text {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 12px;
+}
+.btn-ver-files {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 4 12;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+.btn-ver-files:hover {
+    -fx-border-color: -rq-accent;
+    -fx-text-fill: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+.btn-ver-files.has-files {
+    -fx-border-color: -rq-accent;
+    -fx-text-fill: -rq-accent;
+    -fx-background-color: -rq-accent-muted;
+}
+.version-body {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 8 0;
+}
+.version-body > .split-pane-divider {
+    -fx-background-color: -rq-border;
+    -fx-padding: 0 5 0 5;
+}
+.version-body > .split-pane-divider:hover {
+    -fx-background-color: -rq-accent;
+    -fx-padding: 0 6 0 6;
+}
+
+/* 備忘錄垂直拖曳把手 */
+.note-resize-handle {
+    -fx-background-color: transparent;
+    -fx-min-height: 8;
+    -fx-pref-height: 8;
+}
+.note-resize-handle:hover {
+    -fx-background-color: -rq-accent;
+    -fx-background-radius: 4;
+    -fx-opacity: 0.4;
+}
+.note-resize-deco {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 10px;
+    -fx-opacity: 0.5;
+    -fx-mouse-transparent: true;
+}
+.sub-title {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 6 0;
+}
+.sub-section {
+    -fx-padding: 10 14 12 14;
+}
+.path-info {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 10;
+    -fx-font-size: 12px;
+    -fx-text-fill: -rq-text-muted;
+}
+.path-label {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 11px;
+}
+
+/* ── 07. 任務勾選列 ──────────────────────────────────────────────────────────*/
+.check-item {
+    -fx-padding: 7 10 7 10;
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+    -fx-spacing: 10;
+}
+.check-item:hover {
+    -fx-background-color: -rq-surface3;
+}
+.check-item.checked {
+    -fx-opacity: 0.55;
+}
+.check-item.warn-item {
+    -fx-border-color: -rq-warn;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 7 10 7 8;
+    -fx-background-color: -rq-warn-light;
+    -fx-background-radius: 0 7 7 0;
+}
+.check-item.optional-item .check-label-text {
+    -fx-text-fill: -rq-optional;
+}
+/* 自訂複選框（P0 fix: Java 使用 .check-box，原 CSS 的 .check-box-custom）*/
+.check-box {
+    -fx-min-width: 20;
+    -fx-min-height: 20;
+    -fx-max-width: 20;
+    -fx-max-height: 20;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-background-color: -rq-surface2;
+    -fx-cursor: hand;
+    -fx-alignment: center;
+    -fx-font-size: 13px;
+    -fx-text-fill: transparent;
+}
+.check-box:hover {
+    -fx-border-color: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+.check-box.checked {
+    -fx-background-color: -rq-accent;
+    -fx-border-color: -rq-accent;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, -rq-accent, 4, 0.3, 0, 0);
+}
+.check-label-text {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 14px;
+}
+.check-label-text.checked {
+    -fx-text-fill: -rq-text-dim;
+}
+.check-step {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 1 5;
+    -fx-font-size: 11px;
+    -fx-text-fill: -rq-text-dim;
+}
+.check-sub {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 13px;
+}
+.check-timestamp {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 11px;
+    -fx-opacity: 0.85;
+}
+/* 標籤 */
+.warn-tag {
+    -fx-background-color: -rq-warn-light;
+    -fx-border-color: -rq-warn;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 1 6;
+    -fx-font-size: 11px;
+    -fx-text-fill: -rq-warn;
+}
+.optional-tag {
+    -fx-background-color: -rq-optional-light;
+    -fx-border-color: -rq-optional;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 1 6;
+    -fx-font-size: 11px;
+    -fx-text-fill: -rq-optional;
+}
+/* 路徑/檔名顯示 */
+.file-hint {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+}
+.folder-path, .filename-text {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+}
+.copy-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-border-color: transparent;
+    -fx-padding: 0 4;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+}
+.copy-btn:hover {
+    -fx-text-fill: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+
+/* ── 08. 磁碟狀態圓點 ───────────────────────────────────────────────────────*/
+.file-dot {
+    -fx-min-width: 9;
+    -fx-min-height: 9;
+    -fx-max-width: 9;
+    -fx-max-height: 9;
+    -fx-background-radius: 5;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0.2, 0, 0);
+}
+.file-dot.fs-file    { -fx-background-color: #34d472; }
+.file-dot.fs-partial { -fx-background-color: #f0ba1a; }
+.file-dot.fs-folder  { -fx-background-color: #6e88a0; }
+.file-dot.fs-none    { -fx-background-color: #3a4a5e; }
+.file-dot.fs-stale   { -fx-background-color: #9f7eea; }
+.file-dot.fs-scan    { -fx-background-color: -rq-text-dim; }
+.file-dot.fs-unknown { -fx-background-color: -rq-border; }
+
+/* ── 09. 進度條 ─────────────────────────────────────────────────────────────*/
+.rq-progress-bar {
+    -fx-accent: -rq-accent;
+    -fx-background-color: -rq-surface2;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-border-color: transparent;
+    -fx-pref-height: 10;
+}
+.rq-progress-bar .bar {
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, derive(-rq-accent, -30%), 4, 0.4, 0, 0);
+}
+.rq-progress-bar.done .bar {
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
+    -fx-effect: dropshadow(gaussian, derive(-rq-success, -30%), 4, 0.4, 0, 0);
+}
+.rq-progress-bar .track {
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 6;
+}
+
+/* ── 10. 100% 完成歸檔橫幅 ─────────────────────────────────────────────────*/
+.archive-banner {
+    -fx-background-color: -rq-success-light;
+    -fx-border-color: -rq-success;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 12 20;
+}
+.archive-banner-text {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.btn-archive {
+    -fx-background-color: -rq-success;
+    -fx-text-fill: #0f1e18;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 18;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.btn-archive:hover {
+    -fx-background-color: -rq-success-hover;
+    -fx-effect: dropshadow(gaussian, -rq-success, 6, 0.2, 0, 1);
+}
+
+/* ── 11. 備忘錄 ─────────────────────────────────────────────────────────────*/
+.note-block {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-warn;
+    -fx-border-width: 1 1 1 3;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10 10 10 8;
+}
+.note-header {
+    -fx-padding: 10 16 10 18;
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-background-radius: 10 10 0 0;
+}
+.note-header:hover {
+    -fx-background-color: -rq-surface3;
+}
+.note-header-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -rq-text-muted;
+}
+.note-collapse-icon {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+}
+.note-saved {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 12px;
+    -fx-opacity: 0;
+}
+.note-body {
+    -fx-padding: 0 16 14 18;
+    -fx-background-color: transparent;
+}
+.note-textarea {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-prompt-text-fill: -rq-text-dim;
+    -fx-font-size: 14px;
+    -fx-padding: 10;
+    -fx-pref-height: 100;
+    -fx-line-spacing: 3;
+}
+/* JavaFX TextArea 內層節點必須個別覆蓋，否則仍顯示白底 */
+.note-textarea .content {
+    -fx-background-color: -rq-surface2;
+}
+.note-textarea > .scroll-pane {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: transparent;
+}
+.note-textarea > .scroll-pane > .viewport {
+    -fx-background-color: -rq-surface2;
+}
+.note-textarea > .scroll-pane .scroll-bar:vertical {
+    -fx-background-color: -rq-surface2;
+}
+.note-textarea:focused {
+    -fx-border-color: -rq-warn;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, -rq-warn, 5, 0.08, 0, 0);
+}
+.note-saved-label {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 12px;
+    -fx-opacity: 0;
+}
+
+/* ── 12. Toast 通知（P0 fix: Java 使用 .toast，原 CSS 的 .toast-notification）*/
+.toast {
+    -fx-background-color: -rq-accent, #2e3a48;
+    -fx-background-insets: 0, 3 0 0 0;
+    -fx-background-radius: 10, 8;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 0 1 1 1;
+    -fx-border-radius: 10;
+    -fx-padding: 12 22 12 18;
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 20, 0.1, 0, 6);
+}
+
+/* ── 13. 確認對話框（P0 fix: Java 使用 .confirm-box/.confirm-message）*/
+.confirm-box {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 36, 0.05, 0, 12);
+}
+.confirm-icon {
+    -fx-font-size: 36px;
+    -fx-alignment: center;
+}
+.confirm-title {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+.confirm-message {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 14px;
+    -fx-wrap-text: true;
+    -fx-line-spacing: 3;
+}
+.confirm-cancel-btn {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 22;
+    -fx-cursor: hand;
+}
+.confirm-cancel-btn:hover {
+    -fx-text-fill: -rq-text;
+    -fx-border-color: -rq-border-dark;
+    -fx-background-color: -rq-surface3;
+}
+.confirm-action-btn {
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 22;
+    -fx-cursor: hand;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+/* ── 14. 掃描結果面板 ────────────────────────────────────────────────────────*/
+.scan-result-panel {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-accent;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 10 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 14, 0, 0, 4);
+}
+.srp-title {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 12px;
+}
+.srp-item-label {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 13px;
+}
+.srp-item-note {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 11px;
+}
+/* 圖示關閉按鈕（MainController inline style 清理）*/
+.icon-btn-close {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-cursor: hand;
+    -fx-padding: 2 6;
+    -fx-background-radius: 5;
+    -fx-font-size: 13px;
+}
+.icon-btn-close:hover {
+    -fx-text-fill: -rq-text;
+    -fx-background-color: -rq-surface2;
+}
+
+/* ── 15. 下拉選單 ────────────────────────────────────────────────────────────*/
+.dropdown-menu {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0, 0, 5);
+    -fx-padding: 4 0;
+}
+.dropdown-item {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text;
+    -fx-padding: 9 20;
+    -fx-cursor: hand;
+    -fx-alignment: center-left;
+    -fx-pref-width: 230;
+    -fx-font-size: 14px;
+}
+.dropdown-item:hover {
+    -fx-background-color: -rq-surface3;
+}
+.dropdown-sep {
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 4 0;
+}
+.dropdown-status {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+    -fx-padding: 2 20;
+}
+.dropdown-status.ok {
+    -fx-text-fill: -rq-success;
+}
+.dropdown-status.warn {
+    -fx-text-fill: -rq-warn;
+}
+
+/* ── 16. 對話框（Modal）通用 ─────────────────────────────────────────────────*/
+.dialog-root {
+    -fx-background-color: -rq-surface;
+}
+.dialog-header {
+    -fx-background-color: derive(-rq-surface, 3%);
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 14 24 12 24;
+    -fx-background-radius: 14 14 0 0;
+}
+.dialog-title {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
+.dialog-close-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-border-color: transparent;
+    -fx-font-size: 16px;
+    -fx-cursor: hand;
+    -fx-padding: 2 6;
+    -fx-background-radius: 6;
+}
+.dialog-close-btn:hover {
+    -fx-text-fill: -rq-text;
+    -fx-background-color: -rq-surface2;
+}
+.dialog-body {
+    -fx-padding: 20 24 16 24;
+    -fx-background-color: -rq-surface;
+}
+.dialog-footer {
+    -fx-background-color: derive(-rq-surface, -2%);
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 14 24 16 24;
+    -fx-alignment: center-right;
+    -fx-spacing: 10;
+    -fx-background-radius: 0 0 14 14;
+}
+/* Modal 對話框（NewEditRQDialog 等使用）*/
+.modal {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 36, 0.05, 0, 12);
+}
+.modal-header {
+    -fx-background-color: derive(-rq-surface, 3%);
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 14 14 0 0;
+    -fx-padding: 14 24 14 24;
+}
+.modal-title {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -rq-text;
+}
+.modal-close {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-border-color: transparent;
+    -fx-font-size: 16px;
+    -fx-cursor: hand;
+    -fx-padding: 2 6;
+    -fx-background-radius: 6;
+}
+.modal-close:hover {
+    -fx-text-fill: -rq-text;
+    -fx-background-color: -rq-surface2;
+}
+.modal-body {
+    -fx-padding: 20 24 16 24;
+    -fx-background-color: -rq-surface;
+}
+.modal-footer {
+    -fx-background-color: derive(-rq-surface, -2%);
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 14 24 16 24;
+    -fx-alignment: center-right;
+    -fx-spacing: 10;
+    -fx-background-radius: 0 0 14 14;
+}
+
+/* ── 17. 表單元素 ────────────────────────────────────────────────────────────*/
+.form-label {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+.form-hint {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+}
+.form-input {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-prompt-text-fill: -rq-text-dim;
+    -fx-padding: 9 12;
+    -fx-font-size: 14px;
+}
+/* TextField 內層白底修正 */
+.form-input > .text-field-wrapper,
+.form-input .content {
+    -fx-background-color: -rq-surface2;
+}
+.form-input:focused {
+    -fx-border-color: -rq-accent;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(gaussian, -rq-accent, 6, 0.1, 0, 0);
+}
+.form-input-disabled {
+    -fx-opacity: 0.6;
+    -fx-cursor: default;
+}
+
+/* ── 18. 按鈕 ───────────────────────────────────────────────────────────────*/
+.btn-primary {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: #0f1620;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 24;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.btn-primary:hover {
+    -fx-background-color: -rq-accent-hover;
+    -fx-effect: dropshadow(gaussian, -rq-accent, 6, 0.2, 0, 2);
+}
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 24;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+}
+.btn-ghost:hover {
+    -fx-text-fill: -rq-text;
+    -fx-border-color: -rq-border-dark;
+    -fx-background-color: -rq-surface2;
+}
+.btn-danger {
+    -fx-background-color: -rq-danger;
+    -fx-text-fill: white;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 24;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.btn-danger:hover {
+    -fx-background-color: derive(-rq-danger, 15%);
+    -fx-effect: dropshadow(gaussian, -rq-danger, 5, 0.2, 0, 1);
+}
+.btn-warn {
+    -fx-background-color: -rq-warn;
+    -fx-text-fill: #0f1620;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 9 24;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.btn-warn:hover {
+    -fx-background-color: derive(-rq-warn, 15%);
+}
+
+/* ── 19. 歷史紀錄項目 ────────────────────────────────────────────────────────*/
+.history-item {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 12 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 3, 0, 0, 1);
+}
+.history-item:hover {
+    -fx-border-color: -rq-border-dark;
+    -fx-background-color: -rq-surface3;
+}
+.history-item-id {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.history-item-meta {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 12px;
+}
+.history-item-archived {
+    -fx-text-fill: -rq-success;
+    -fx-font-size: 12px;
+}
+.btn-restore {
+    -fx-background-color: -rq-surface;
+    -fx-text-fill: -rq-accent;
+    -fx-border-color: -rq-accent;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 14;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+.btn-restore:hover {
+    -fx-background-color: -rq-accent-light;
+}
+.btn-del-arc {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-danger;
+    -fx-border-color: -rq-danger;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 14;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+.btn-del-arc:hover {
+    -fx-background-color: -rq-danger-light;
+}
+
+/* ── 20. ScrollPane 自訂 ─────────────────────────────────────────────────────*/
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: -rq-border-dark;
+    -fx-background-radius: 4;
+}
+.scroll-bar:vertical .thumb:hover,
+.scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: -rq-text-dim;
+}
+.scroll-bar {
+    -fx-background-color: -rq-surface2;
+}
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: -rq-surface2;
+}
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: -rq-border-dark;
+}
+
+/* ── 21. 空狀態 ──────────────────────────────────────────────────────────────*/
+.empty-state {
+    -fx-alignment: center;
+    -fx-spacing: 18;
+    -fx-padding: 60 0;
+}
+.empty-state-icon {
+    -fx-font-size: 56px;
+    -fx-opacity: 0.5;
+}
+.empty-state-icon-bg {
+    -fx-background-color: -rq-surface;
+    -fx-background-radius: 50;
+    -fx-min-width: 100;
+    -fx-min-height: 100;
+    -fx-max-width: 100;
+    -fx-max-height: 100;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 50;
+    -fx-border-width: 1;
+}
+.empty-state-title {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+.empty-state-sub {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 14px;
+    -fx-line-spacing: 3;
+}
+
+/* ── 22. 資料夾清單視窗 ─────────────────────────────────────────────────────*/
+.folder-group {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 0;
+}
+.folder-path-row {
+    -fx-background-color: derive(-rq-surface2, -5%);
+    -fx-padding: 8 12;
+    -fx-border-radius: 7 7 0 0;
+    -fx-background-radius: 7 7 0 0;
+}
+.folder-path-text {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 12px;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+}
+.folder-file-row {
+    -fx-padding: 6 12;
+    -fx-cursor: hand;
+}
+.folder-file-row:hover {
+    -fx-background-color: -rq-surface3;
+}
+.folder-section-title {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 0 4 0;
+}
+
+/* ── 23. 進度資訊列 ─────────────────────────────────────────────────────────*/
+.progress-info {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 13px;
+}
+.pct-label {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.pct-label.done {
+    -fx-text-fill: -rq-success;
+}
+.btn-edit-versions {
+    -fx-background-color: -rq-surface2;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 14;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+}
+.btn-edit-versions:hover {
+    -fx-border-color: -rq-accent;
+    -fx-text-fill: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+.no-version-hint {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 13px;
+    -fx-padding: 8 0;
+}
+
+/* ── 24. 版本清單（NewEditRQDialog）────────────────────────────────────────*/
+.version-list {
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 6;
+    -fx-spacing: 4;
+}
+.btn-add-ver {
+    -fx-background-color: -rq-surface;
+    -fx-text-fill: -rq-accent;
+    -fx-border-color: -rq-accent;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 5 14;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+.btn-add-ver:hover {
+    -fx-background-color: -rq-accent-light;
+}
+.btn-remove-ver {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-danger;
+    -fx-border-color: transparent;
+    -fx-padding: 2 8;
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+    -fx-background-radius: 4;
+}
+.btn-remove-ver:hover {
+    -fx-background-color: -rq-danger-light;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* ── v2 側邊欄架構（SidePanel / RQListItem / RQ Header） ─────────────── */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 25. 側邊欄主體 ─────────────────────────────────────────────────────── */
+.side-panel {
+    -fx-min-width: 220;
+    -fx-pref-width: 240;
+    -fx-max-width: 300;
+    -fx-background-color: -rq-surface2;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 1 0 0;
+}
+
+/* App 商標區 */
+.side-brand {
+    -fx-padding: 14 16 14 16;
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-spacing: 4;
+    -fx-alignment: center-left;
+}
+.brand-icon {
+    -fx-font-size: 22px;
+    -fx-text-fill: -rq-accent;
+    -fx-padding: 0 6 0 0;
+}
+.brand-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -rq-text;
+}
+.brand-sub {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -rq-text-muted;
+}
+
+/* 工具列（新增 + 齒輪） */
+.side-toolbar {
+    -fx-padding: 8 10 8 10;
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+}
+.btn-side-new {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: #0f1620;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-padding: 7 0;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+    -fx-border-color: transparent;
+    -fx-max-width: infinity;
+    -fx-cursor: hand;
+}
+.btn-side-new:hover {
+    -fx-background-color: -rq-accent-hover;
+}
+.btn-side-new:pressed {
+    -fx-background-color: derive(-rq-accent, -10%);
+}
+.btn-side-tool {
+    -fx-background-color: -rq-surface3;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 7 10;
+    -fx-font-size: 14px;
+    -fx-min-width: 36;
+    -fx-max-width: 36;
+    -fx-cursor: hand;
+}
+.btn-side-tool:hover {
+    -fx-text-fill: -rq-text;
+    -fx-border-color: -rq-accent;
+    -fx-background-color: -rq-accent-light;
+}
+
+/* 狀態列（底部） */
+.side-status {
+    -fx-padding: 6 12 8 12;
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+.scan-indicator {
+    -fx-font-size: 9px;
+    -fx-text-fill: -rq-text-dim;
+}
+.scan-indicator.active {
+    -fx-text-fill: -rq-accent;
+    -fx-effect: dropshadow(gaussian, -rq-accent, 4, 0.5, 0, 0);
+}
+
+/* ── 26. RQ 列表項目 ──────────────────────────────────────────────────────── */
+.rq-list {
+    -fx-spacing: 0;
+    -fx-background-color: transparent;
+}
+.rq-list-item {
+    -fx-padding: 10 10 10 14;
+    -fx-cursor: hand;
+    -fx-alignment: center-left;
+    -fx-background-color: transparent;
+    -fx-spacing: 8;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+}
+.rq-list-item:hover {
+    -fx-background-color: -rq-surface3;
+}
+/* 選中：左側 3px accent 色條 + 較亮背景 */
+.rq-list-item.active {
+    -fx-background-color: -rq-surface, -rq-accent-light;
+    -fx-background-insets: 0, 0 0 0 3;
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-accent;
+    -fx-border-width: 0 0 1 3;
+    -fx-padding: 10 10 10 11;
+}
+
+.rq-item-id {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-wrap-text: true;
+}
+.rq-list-item.active .rq-item-id {
+    -fx-text-fill: -rq-accent;
+}
+.rq-item-pct {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 11px;
+    -fx-min-width: 34;
+    -fx-alignment: center-right;
+}
+.rq-list-item.active .rq-item-pct {
+    -fx-text-fill: -rq-accent;
+}
+
+/* 迷你進度條（3px 高） */
+.rq-item-bar {
+    -fx-pref-height: 3;
+    -fx-max-height: 3;
+    -fx-background-radius: 2;
+    -fx-border-color: transparent;
+}
+.rq-item-bar .track {
+    -fx-background-color: -rq-border;
+    -fx-background-radius: 2;
+}
+.rq-item-bar .bar {
+    -fx-background-color: -rq-accent;
+    -fx-background-radius: 2;
+}
+.rq-item-bar.done .bar {
+    -fx-background-color: -rq-success;
+}
+
+/* 刪除按鈕（Java 代碼控制 opacity） */
+.rq-item-del {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -rq-text-dim;
+    -fx-padding: 2 4;
+    -fx-font-size: 11px;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-min-width: 20;
+    -fx-max-width: 20;
+}
+.rq-item-del:hover {
+    -fx-text-fill: -rq-danger;
+    -fx-background-color: -rq-danger-light;
+}
+
+/* ── 27. RQ 內容 Header（固定於 content-area 頂部） ─────────────────────── */
+.rq-header {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 20 10 20;
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 6, 0, 0, 2);
+}
+.rq-header-title {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+.rq-header-sub {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 12px;
+}
+.rq-header-bar {
+    -fx-pref-height: 7;
+    -fx-background-radius: 4;
+    -fx-border-color: transparent;
+}
+.rq-header-bar .track {
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 4;
+}
+.rq-header-bar .bar {
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
+    -fx-background-radius: 4;
+    -fx-effect: dropshadow(gaussian, derive(-rq-accent, -30%), 4, 0.4, 0, 0);
+}
+.rq-header-bar.done .bar {
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
+    -fx-effect: dropshadow(gaussian, derive(-rq-success, -30%), 4, 0.4, 0, 0);
+}
+.rq-header-pct {
+    -fx-text-fill: -rq-text;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-min-width: 46;
+    -fx-alignment: center-right;
+}
+.rq-header-pct.done {
+    -fx-text-fill: -rq-success;
+}
+
+/* 小按鈕修飾詞（.btn-sm） */
+.btn-sm {
+    -fx-padding: 5 12;
+    -fx-font-size: 12px;
+}
+
+/* 整體佈局容器背景 */
+.app-root {
+    -fx-background-color: -rq-bg;
+}
+.app-layout {
+    -fx-background-color: -rq-bg;
+}
+.content-area {
+    -fx-background-color: -rq-bg;
+}
+
+/* ScrollPane edge-to-edge（無內邊距、無邊框） */
+.edge-to-edge {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+.edge-to-edge > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* 路徑驗證圖示 */
+.path-status-icon { -fx-font-size:14px; -fx-font-weight:bold; -fx-min-width:20; -fx-alignment:center; }
+.path-valid   { -fx-text-fill: -rq-success; }
+.path-invalid { -fx-text-fill: -rq-danger; }
+.path-optional{ -fx-text-fill: -rq-text-dim; }
+
+/* 設定對話框分組樣式 */
+.settings-desc {
+    -fx-text-fill: -rq-text-muted;
+    -fx-font-size: 13px;
+    -fx-wrap-text: true;
+}
+.settings-group-header {
+    -fx-text-fill: -rq-text-dim;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 0 8 0 0;
+}
+
+/* ContextMenu / MenuItem 文字純白 */
+.context-menu {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 12, 0, 0, 4);
+    -fx-padding: 4 0;
+}
+.menu-item {
+    -fx-background-color: transparent;
+    -fx-padding: 7 16;
+}
+.menu-item .label {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+}
+.menu-item:focused, .menu-item:hover {
+    -fx-background-color: -rq-accent-light;
+    -fx-background-radius: 6;
+}
+.menu-item:focused .label, .menu-item:hover .label {
+    -fx-text-fill: white;
+}
+.context-menu .separator .line {
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* ── 更新徽章 ─────────────────────────────────────────────────── */
+.update-badge {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+    -fx-alignment: center;
+}

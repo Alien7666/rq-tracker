@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"DISK_PREFIXES\\\\|DISK_HANDLE_KEYS\\\\|D:\\\\\\\\\\\\\\\\Systex\\\\|C:\\\\\\\\\\\\\\\\SVN\" \"E:/Projects/java/RQ_Task/RQ_TODO_Tracker.html\")",
+      "Bash(java --version)",
+      "Bash(mvn --version)",
+      "Bash(mvn compile *)",
+      "Bash(where mvn *)",
+      "Read(//c/Program Files/**)",
+      "Bash(export PATH=\"$PATH:/c/Users/jason/AppData/Local/JetBrains/Toolbox/cache/backup/IDEA-U-253.32098.37-1123250696208363639/plugins/maven/lib/maven3/bin\")",
+      "Bash(java -version)",
+      "Bash(javac -version)",
+      "Bash(xargs grep *)",
+      "Bash(java list *)",
+      "Bash(scoop list *)",
+      "Bash(jabba ls *)",
+      "Bash(jenv versions *)",
+      "Bash(scoop reset *)",
+      "Bash(~/scoop/apps/openjdk21/current/bin/java *)",
+      "Read(//c/Users/jason/scoop/shims/**)",
+      "Read(//c/Users/jason/scoop/apps/**)",
+      "Bash(cmd *)",
+      "Bash(powershell *)",
+      "Bash(JAVA_HOME=/c/Users/jason/scoop/apps/openjdk21/current ~/scoop/apps/maven/current/bin/mvn.cmd compile -q)",
+      "Bash(JAVA_HOME=/c/Users/jason/scoop/apps/openjdk21/current ~/scoop/apps/maven/current/bin/mvn.cmd test -q)",
+      "Bash(JAVA_HOME=/c/Users/jason/scoop/apps/openjdk21/current ~/scoop/apps/maven/current/bin/mvn.cmd test)",
+      "Bash(JAVA_HOME=/c/Users/jason/scoop/apps/openjdk21/current ~/scoop/apps/maven/current/bin/mvn.cmd compile)",
+      "Bash(python *)",
+      "Bash(py --version)",
+      "Bash(./mvnw compile *)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
