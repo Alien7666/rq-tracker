@@ -12,8 +12,10 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -22,10 +24,16 @@ public final class UpdateService {
 
     private static final Logger LOG = Logger.getLogger(UpdateService.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final String UPDATE_LOG_NAME = "rq-update-log.txt";
+    private static final String UPDATE_STARTED_FLAG_NAME = "rq-update-started.flag";
 
     public record UpdateInfo(String version, String releaseNotes, String downloadUrl, String publishedAt) {}
 
     private UpdateService() {}
+
+    public static Path getUpdateStartedFlagPath() {
+        return Path.of(System.getProperty("java.io.tmpdir"), UPDATE_STARTED_FLAG_NAME);
+    }
 
     // ── 版本檢查 ──────────────────────────────────────────────────────────────
 
@@ -115,74 +123,124 @@ public final class UpdateService {
     }
 
     /**
-     * 靜默安裝並在完成後自動重啟。
-     *
-     * 架構說明（兩個暫存檔）：
-     *   rq-update-worker.ps1  — 以管理員身份執行，做實際 msiexec 安裝 + 重啟
-     *   rq-update-launcher.vbs — 由 wscript.exe /B 執行，完全無視窗，
-     *                            透過 Shell.Application.ShellExecute "runas" 觸發 UAC
-     *
-     * 關鍵原理：
-     *   PowerShell -Verb RunAs 在 Hidden/NonInteractive 程序中可能無法觸發 UAC。
-     *   Shell.Application.ShellExecute("powershell","...","","runas",0) 是 Windows
-     *   官方建議的背景程序 UAC 觸發方式，無論父程序視窗狀態如何都能正確顯示 UAC。
+     * 啟動提權 worker 進行靜默安裝。
+     * 呼叫端應等待 getUpdateStartedFlagPath() 出現後再關閉目前 App。
      */
     public static void launchInstaller(Path msi) throws IOException {
-        String msiPath = msi.toAbsolutePath().toString();
-        String tmpDir  = System.getProperty("java.io.tmpdir");
+        if (msi == null) {
+            throw new IOException("尚未下載安裝檔，請重新下載更新。");
+        }
+        Path msiAbs = msi.toAbsolutePath();
+        if (!Files.isRegularFile(msiAbs) || Files.size(msiAbs) <= 0) {
+            throw new IOException("找不到有效的 MSI 安裝檔：" + msiAbs);
+        }
 
-        // 取得目前執行檔路徑（jpackage 安裝後為 RQTracker.exe）
+        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
+        Path logFile = tmpDir.resolve(UPDATE_LOG_NAME);
+        Path flagFile = getUpdateStartedFlagPath();
+        Files.deleteIfExists(flagFile);
+
+        long appPid = ProcessHandle.current().pid();
         String exePath = ProcessHandle.current().info().command().orElse("");
         boolean canRelaunch = !exePath.isBlank()
             && exePath.toLowerCase().endsWith(".exe")
             && !exePath.toLowerCase().contains("java");
-
-        // ── Step 1：寫 PowerShell worker（以提權後的管理員身份執行） ─────────────
-        StringBuilder psWorker = new StringBuilder();
-        // 寫安裝日誌到 %TEMP%\rq-update-log.txt 方便診斷
-        psWorker.append("$log = \"$env:TEMP\\rq-update-log.txt\"\r\n");
-        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [START] worker running as admin\" | Out-File $log -Encoding UTF8\r\n");
-        psWorker.append("$msi = '").append(msiPath.replace("'", "''")).append("'\r\n");
-        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] msi=$msi\" | Add-Content $log\r\n");
-        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] exists=$(Test-Path $msi)\" | Add-Content $log\r\n");
-        // 以管理員身份直接呼叫 msiexec（不需 -Verb RunAs，已是提權程序）
-        psWorker.append("$proc = Start-Process msiexec -ArgumentList @('/i', $msi, '/quiet', '/norestart') -Wait -PassThru\r\n");
-        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] exitCode=$($proc.ExitCode)\" | Add-Content $log\r\n");
-        if (canRelaunch) {
-            psWorker.append("if ($proc -ne $null -and $proc.ExitCode -eq 0) {\r\n");
-            psWorker.append("    Start-Sleep -Seconds 3\r\n");
-            psWorker.append("    Start-Process '").append(exePath.replace("'", "''")).append("'\r\n");
-            psWorker.append("    \"$(Get-Date -f 'HH:mm:ss') [INFO] relaunched\" | Add-Content $log\r\n");
-            psWorker.append("}\r\n");
+        if (!canRelaunch) {
+            writePrepareLog(logFile, msiAbs, appPid, exePath, "INVALID_EXE");
+            throw new IOException("目前不是以已安裝的 RQTracker.exe 執行，無法自動更新。");
         }
-        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [END] done\" | Add-Content $log\r\n");
 
-        Path psFile = java.nio.file.Path.of(tmpDir, "rq-update-worker.ps1");
-        java.nio.file.Files.writeString(psFile, psWorker.toString(),
-            java.nio.charset.StandardCharsets.UTF_8);
+        writePrepareLog(logFile, msiAbs, appPid, exePath, "PREPARE");
 
-        // ── Step 2：寫 VBScript launcher（Shell.Application.ShellExecute = Windows 官方 UAC 觸發） ──
-        // VBScript 字串內 "" 代表一個 "，故路徑要包在 ""PATH"" 之中
-        // sh.ShellExecute "powershell.exe", "-... -File ""PATH""", "", "runas", 0
-        String psAbsPath = psFile.toAbsolutePath().toString();
-        String vbsContent =
-            "WScript.Sleep 4000\r\n" +
-            "Set sh = CreateObject(\"Shell.Application\")\r\n" +
-            "sh.ShellExecute \"powershell.exe\", " +
-            "\"-ExecutionPolicy Bypass -WindowStyle Hidden -File \"\"" +
-            psAbsPath +
-            "\"\"\", \"\", \"runas\", 0\r\n";
+        Path psFile = tmpDir.resolve("rq-update-worker.ps1");
+        Files.writeString(psFile, buildWorkerScript(msiAbs, flagFile, logFile, exePath, appPid),
+            StandardCharsets.UTF_8);
 
-        Path vbsFile = java.nio.file.Path.of(tmpDir, "rq-update-launcher.vbs");
-        java.nio.file.Files.writeString(vbsFile, vbsContent,
-            java.nio.charset.StandardCharsets.UTF_8);
+        Process process = new ProcessBuilder(
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-Command",
+            "Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','"
+                + psEscape(psFile.toAbsolutePath().toString()) + "') -Verb RunAs"
+        ).start();
 
-        // ── Step 3：用 wscript.exe /B 靜默啟動 VBS（/B 隱藏所有錯誤對話框） ─────
-        new ProcessBuilder("wscript.exe", "/B",
-            vbsFile.toAbsolutePath().toString()).start();
+        try {
+            if (process.waitFor(10, TimeUnit.SECONDS)) {
+                int exit = process.exitValue();
+                appendLog(logFile, "LAUNCHER exitCode=" + exit);
+                if (exit != 0) {
+                    throw new IOException("提權安裝啟動器失敗，exitCode=" + exit);
+                }
+            } else {
+                appendLog(logFile, "LAUNCHER still waiting for UAC response");
+                process.destroyForcibly();
+                throw new IOException("未在 10 秒內完成 Windows 授權確認，請重新點選立即安裝。");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("提權安裝啟動器被中斷", e);
+        }
+    }
 
+    public static void exitForUpdate() {
         javafx.application.Platform.exit();
         System.exit(0);
+    }
+
+    private static String buildWorkerScript(Path msi, Path flagFile, Path logFile,
+                                            String exePath, long appPid) {
+        StringBuilder ps = new StringBuilder();
+        ps.append("$ErrorActionPreference = 'Stop'\r\n");
+        ps.append("$log = '").append(psEscape(logFile.toString())).append("'\r\n");
+        ps.append("function Log($m) { \"$(Get-Date -f 'HH:mm:ss') $m\" | Add-Content $log -Encoding UTF8 }\r\n");
+        ps.append("try {\r\n");
+        ps.append("    Log '[STARTED] worker running as admin'\r\n");
+        ps.append("    Set-Content -Path '").append(psEscape(flagFile.toString())).append("' -Value \"started $(Get-Date -Format o)\" -Encoding UTF8\r\n");
+        ps.append("    $msi = '").append(psEscape(msi.toString())).append("'\r\n");
+        ps.append("    Log \"[INFO] msi=$msi\"\r\n");
+        ps.append("    Log \"[INFO] exists=$(Test-Path $msi)\"\r\n");
+        ps.append("    try {\r\n");
+        ps.append("        $appProc = Get-Process -Id ").append(appPid).append(" -ErrorAction SilentlyContinue\r\n");
+        ps.append("        if ($appProc -ne $null) { Log '[INFO] waiting for app process to exit'; Wait-Process -Id ").append(appPid).append(" -Timeout 60 -ErrorAction SilentlyContinue }\r\n");
+        ps.append("    } catch { Log \"[WARN] wait app failed: $($_.Exception.Message)\" }\r\n");
+        ps.append("    Start-Sleep -Seconds 2\r\n");
+        ps.append("    $proc = Start-Process msiexec -ArgumentList @('/i', $msi, '/quiet', '/norestart') -Wait -PassThru\r\n");
+        ps.append("    Log \"[INFO] msiexec exitCode=$($proc.ExitCode)\"\r\n");
+        ps.append("    if ($proc -ne $null -and $proc.ExitCode -eq 0) {\r\n");
+        ps.append("        Start-Sleep -Seconds 3\r\n");
+        ps.append("        Start-Process '").append(psEscape(exePath)).append("'\r\n");
+        ps.append("        Log '[INFO] relaunched'\r\n");
+        ps.append("    }\r\n");
+        ps.append("    Log '[END] done'\r\n");
+        ps.append("} catch {\r\n");
+        ps.append("    Log \"[ERROR] $($_.Exception.Message)\"\r\n");
+        ps.append("    exit 1\r\n");
+        ps.append("}\r\n");
+        return ps.toString();
+    }
+
+    private static void writePrepareLog(Path logFile, Path msi, long appPid,
+                                        String exePath, String status) throws IOException {
+        String content = ""
+            + java.time.LocalDateTime.now() + " [" + status + "] launcher preparing\r\n"
+            + "msi=" + msi + "\r\n"
+            + "msiExists=" + Files.exists(msi) + "\r\n"
+            + "msiSize=" + (Files.exists(msi) ? Files.size(msi) : -1) + "\r\n"
+            + "appPid=" + appPid + "\r\n"
+            + "exePath=" + exePath + "\r\n";
+        Files.writeString(logFile, content, StandardCharsets.UTF_8);
+    }
+
+    private static void appendLog(Path logFile, String message) throws IOException {
+        String line = java.time.LocalDateTime.now() + " " + message + "\r\n";
+        Files.writeString(logFile, line, StandardCharsets.UTF_8,
+            java.nio.file.StandardOpenOption.CREATE,
+            java.nio.file.StandardOpenOption.APPEND);
+    }
+
+    private static String psEscape(String value) {
+        return value.replace("'", "''");
     }
 
     // ── 解析 ──────────────────────────────────────────────────────────────────

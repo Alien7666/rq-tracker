@@ -17,6 +17,7 @@ import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -193,9 +194,9 @@ public class UpdateDialog {
                 Label msg = new Label("下載完成！");
                 msg.getStyleClass().add("form-label");
                 Label hint = new Label(
-                    "點「立即安裝」後應用程式將關閉。\n" +
-                    "數秒內 Windows 會彈出授權確認視窗（UAC），請按「是」。\n" +
-                    "授權後靜默安裝，完成後自動重新啟動。\n" +
+                    "點「立即安裝」後會先顯示 Windows 授權確認視窗（UAC）。\n" +
+                    "請按「是」啟動安裝程序，確認啟動後應用程式才會關閉。\n" +
+                    "安裝完成後會自動重新啟動。\n" +
                     "若安裝失敗可查看 %TEMP%\\rq-update-log.txt 診斷。");
                 hint.getStyleClass().add("form-hint");
                 hint.setWrapText(true);
@@ -283,30 +284,49 @@ public class UpdateDialog {
     }
 
     private void startInstall() {
-        // 顯示「安裝中」提示後等待 1.5s 再關閉，讓使用者看到訊息
         body.getChildren().clear();
         footer.getChildren().clear();
 
         Label ico = new Label("⏳");
         ico.getStyleClass().add("modal-title");
-        Label msg = new Label("正在準備靜默安裝…");
+        Label msg = new Label("正在等待 Windows 授權視窗…");
         msg.getStyleClass().add("form-label");
-        Label hint = new Label("應用程式即將關閉，安裝完成後將自動重新啟動。");
+        Label hint = new Label(
+            "請在 UAC 視窗按「是」。\n" +
+            "偵測到安裝程序已啟動後，RQ Tracker 會自動關閉並等待新版安裝完成。");
         hint.getStyleClass().add("form-hint");
         hint.setWrapText(true);
         body.getChildren().addAll(ico, msg, hint);
         dialog.setMinHeight(240);
 
-        javafx.animation.PauseTransition pause =
-            new javafx.animation.PauseTransition(javafx.util.Duration.millis(1500));
-        pause.setOnFinished(e -> {
+        Thread t = new Thread(() -> {
             try {
+                Path flag = UpdateService.getUpdateStartedFlagPath();
                 UpdateService.launchInstaller(downloadedMsi);
+                boolean started = waitForInstallerFlag(flag);
+                Platform.runLater(() -> {
+                    if (started) {
+                        UpdateService.exitForUpdate();
+                    } else {
+                        showError(
+                            "未偵測到安裝程序啟動。\n" +
+                            "請確認是否取消 UAC、被系統阻擋，或查看 %TEMP%\\rq-update-log.txt。");
+                    }
+                });
             } catch (Exception ex) {
-                showError("無法啟動安裝程式：" + ex.getMessage());
+                Platform.runLater(() -> showError("無法啟動安裝程式：" + ex.getMessage()));
             }
-        });
-        pause.play();
+        }, "UpdateDialog-Install");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private boolean waitForInstallerFlag(Path flag) throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            if (Files.exists(flag)) return true;
+            Thread.sleep(100);
+        }
+        return false;
     }
 
     private void showError(String msg) {
