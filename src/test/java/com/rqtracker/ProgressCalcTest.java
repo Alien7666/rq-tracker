@@ -89,6 +89,21 @@ class ProgressCalcTest {
     }
 
     @Test
+    void calcVersionProgress_nullVersions_returnsZero() {
+        rq.setVersions(null);
+        ProgressCalc.Progress p = ProgressCalc.calcVersionProgress(rq, 0);
+        assertEquals(0, p.done());
+        assertEquals(0, p.total());
+    }
+
+    @Test
+    void calcProgress_nullRq_returnsZero() {
+        ProgressCalc.Progress p = ProgressCalc.calcProgress(null);
+        assertEquals(0, p.done());
+        assertEquals(0, p.total());
+    }
+
+    @Test
     void progress_percent_roundsCorrectly() {
         ProgressCalc.Progress p = new ProgressCalc.Progress(1, 3);
         assertEquals(33, p.percent());

@@ -32,6 +32,7 @@ public final class ProgressCalc {
     }
 
     public static Progress calcProgress(RQData rq, String downloadsRoot, String svnRoot) {
+        if (rq == null) return new Progress(0, 0);
         List<TaskDef> allTasks = allTasks(rq, downloadsRoot, svnRoot);
         Map<String, Boolean> checks = rq.getChecks();
 
@@ -48,7 +49,7 @@ public final class ProgressCalc {
     }
 
     public static Progress calcVersionProgress(RQData rq, int vIdx, String downloadsRoot, String svnRoot) {
-        List<RQVersion> versions = rq.getVersions();
+        List<RQVersion> versions = safeVersions(rq);
         if (vIdx < 0 || vIdx >= versions.size()) return new Progress(0, 0);
 
         String vName = versions.get(vIdx).getName();
@@ -65,7 +66,8 @@ public final class ProgressCalc {
 
     /** 取得所有任務清單（供磁碟掃描使用）。 */
     public static List<TaskDef> allTasks(RQData rq, String downloadsRoot, String svnRoot) {
-        List<RQVersion> versions = rq.getVersions();
+        if (rq == null) return List.of();
+        List<RQVersion> versions = safeVersions(rq);
         List<TaskDef> tasks = new ArrayList<>(TaskFactory.sharedFlowTasks());
 
         for (int i = 0; i < versions.size(); i++) {
@@ -78,5 +80,10 @@ public final class ProgressCalc {
         tasks.addAll(TaskFactory.finalDeliveryTasks(rq, downloadsRoot));
         tasks.addAll(TaskFactory.sharedSVNTasks(rq, svnRoot));
         return List.copyOf(tasks);
+    }
+
+    private static List<RQVersion> safeVersions(RQData rq) {
+        if (rq == null || rq.getVersions() == null) return List.of();
+        return rq.getVersions();
     }
 }
