@@ -329,7 +329,7 @@ public class UpdateDialog {
     }
 
     private boolean waitForInstallerFlag(Path flag) throws InterruptedException {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 300; i++) {
             if (Files.exists(flag)) return true;
             Thread.sleep(100);
         }

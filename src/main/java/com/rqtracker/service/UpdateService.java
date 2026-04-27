@@ -26,6 +26,7 @@ public final class UpdateService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String UPDATE_LOG_NAME = "rq-update-log.txt";
     private static final String UPDATE_STARTED_FLAG_NAME = "rq-update-started.flag";
+    private static final String UPDATE_MSI_LOG_NAME = "rq-update-msi.log";
 
     public record UpdateInfo(String version, String releaseNotes, String downloadUrl, String publishedAt) {}
 
@@ -123,7 +124,7 @@ public final class UpdateService {
     }
 
     /**
-     * 啟動提權 worker 進行靜默安裝。
+     * 啟動暫存目錄中的提權 updater 進行靜默安裝。
      * 呼叫端應等待 getUpdateStartedFlagPath() 出現後再關閉目前 App。
      */
     public static void launchInstaller(Path msi) throws IOException {
@@ -138,7 +139,9 @@ public final class UpdateService {
         Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
         Path logFile = tmpDir.resolve(UPDATE_LOG_NAME);
         Path flagFile = getUpdateStartedFlagPath();
+        Path msiLogFile = tmpDir.resolve(UPDATE_MSI_LOG_NAME);
         Files.deleteIfExists(flagFile);
+        Files.deleteIfExists(msiLogFile);
 
         long appPid = ProcessHandle.current().pid();
         String exePath = ProcessHandle.current().info().command().orElse("");
@@ -151,22 +154,22 @@ public final class UpdateService {
         }
 
         writePrepareLog(logFile, msiAbs, appPid, exePath, "PREPARE");
-
-        Path psFile = tmpDir.resolve("rq-update-worker.ps1");
-        Files.writeString(psFile, buildWorkerScript(msiAbs, flagFile, logFile, exePath, appPid),
+        Path psFile = tmpDir.resolve("rq-update-runner.ps1");
+        Files.writeString(psFile, buildUpdaterScript(msiAbs, flagFile, logFile, msiLogFile, Path.of(exePath)),
             StandardCharsets.UTF_8);
+        appendLog(logFile, "UPDATER script=" + psFile);
 
         Process process = new ProcessBuilder(
             "powershell.exe",
             "-NoProfile",
+            "-WindowStyle", "Hidden",
             "-ExecutionPolicy", "Bypass",
             "-Command",
-            "Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','"
-                + psEscape(psFile.toAbsolutePath().toString()) + "') -Verb RunAs"
+            buildElevatedUpdaterCommand(psFile)
         ).start();
 
         try {
-            if (process.waitFor(10, TimeUnit.SECONDS)) {
+            if (process.waitFor(60, TimeUnit.SECONDS)) {
                 int exit = process.exitValue();
                 appendLog(logFile, "LAUNCHER exitCode=" + exit);
                 if (exit != 0) {
@@ -175,7 +178,7 @@ public final class UpdateService {
             } else {
                 appendLog(logFile, "LAUNCHER still waiting for UAC response");
                 process.destroyForcibly();
-                throw new IOException("未在 10 秒內完成 Windows 授權確認，請重新點選立即安裝。");
+                throw new IOException("未在 60 秒內完成 Windows 授權確認，請重新點選立即安裝。");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -188,42 +191,44 @@ public final class UpdateService {
         System.exit(0);
     }
 
-    private static String buildWorkerScript(Path msi, Path flagFile, Path logFile,
-                                            String exePath, long appPid) {
+    private static String buildElevatedUpdaterCommand(Path psFile) {
+        String[] args = { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+            "-File", psFile.toAbsolutePath().toString() };
+        StringBuilder ps = new StringBuilder();
+        ps.append("Start-Process -FilePath 'powershell.exe' -ArgumentList @(");
+        for (int i = 0; i < args.length; i++) {
+            if (i > 0) ps.append(",");
+            ps.append("'").append(psEscape(args[i])).append("'");
+        }
+        ps.append(") -Verb RunAs -WindowStyle Hidden");
+        return ps.toString();
+    }
+
+    private static String buildUpdaterScript(Path msi, Path flagFile, Path logFile,
+                                             Path msiLogFile, Path appExe) {
         StringBuilder ps = new StringBuilder();
         ps.append("$ErrorActionPreference = 'Stop'\r\n");
         ps.append("$log = '").append(psEscape(logFile.toString())).append("'\r\n");
-        ps.append("function Log($m) { \"$(Get-Date -f 'HH:mm:ss') $m\" | Add-Content $log -Encoding UTF8 }\r\n");
+        ps.append("function Log($m) { \"$(Get-Date -Format o) $m\" | Add-Content $log -Encoding UTF8 }\r\n");
         ps.append("try {\r\n");
-        ps.append("    Log '[STARTED] worker running as admin'\r\n");
+        ps.append("    Log 'STARTED updater'\r\n");
         ps.append("    Set-Content -Path '").append(psEscape(flagFile.toString())).append("' -Value \"started $(Get-Date -Format o)\" -Encoding UTF8\r\n");
         ps.append("    $msi = '").append(psEscape(msi.toString())).append("'\r\n");
-        ps.append("    Log \"[INFO] msi=$msi\"\r\n");
-        ps.append("    Log \"[INFO] exists=$(Test-Path $msi)\"\r\n");
-        ps.append("    Log '[INFO] waiting briefly for app shutdown'\r\n");
-        ps.append("    Start-Sleep -Seconds 4\r\n");
-        ps.append("    $exe = '").append(psEscape(exePath)).append("'\r\n");
-        ps.append("    Get-Process RQTracker -ErrorAction SilentlyContinue | ForEach-Object {\r\n");
-        ps.append("        try {\r\n");
-        ps.append("            if ($_.Path -eq $exe) {\r\n");
-        ps.append("                Log \"[INFO] stopping stale RQTracker pid=$($_.Id)\"\r\n");
-        ps.append("                Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue\r\n");
-        ps.append("            }\r\n");
-        ps.append("        } catch { Log \"[WARN] stop stale app failed: $($_.Exception.Message)\" }\r\n");
-        ps.append("    }\r\n");
-        ps.append("    Start-Sleep -Seconds 2\r\n");
-        ps.append("    $msiLog = Join-Path $env:TEMP 'rq-update-msi.log'\r\n");
-        ps.append("    Log \"[INFO] starting msiexec log=$msiLog\"\r\n");
+        ps.append("    $msiLog = '").append(psEscape(msiLogFile.toString())).append("'\r\n");
+        ps.append("    $app = '").append(psEscape(appExe.toString())).append("'\r\n");
+        ps.append("    Log \"MSI=$msi\"\r\n");
+        ps.append("    Log \"MSI_EXISTS=$(Test-Path $msi)\"\r\n");
+        ps.append("    Start-Sleep -Seconds 5\r\n");
+        ps.append("    Log \"MSI_START log=$msiLog\"\r\n");
         ps.append("    $proc = Start-Process \"$env:SystemRoot\\System32\\msiexec.exe\" -ArgumentList @('/i', $msi, '/qn', '/norestart', '/L*v', $msiLog) -Wait -PassThru\r\n");
-        ps.append("    Log \"[INFO] msiexec exitCode=$($proc.ExitCode)\"\r\n");
-        ps.append("    if ($proc -ne $null -and $proc.ExitCode -eq 0) {\r\n");
-        ps.append("        Start-Sleep -Seconds 3\r\n");
-        ps.append("        Start-Process '").append(psEscape(exePath)).append("'\r\n");
-        ps.append("        Log '[INFO] relaunched'\r\n");
+        ps.append("    Log \"MSI_EXIT_CODE $($proc.ExitCode)\"\r\n");
+        ps.append("    if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {\r\n");
+        ps.append("        Start-Sleep -Seconds 2\r\n");
+        ps.append("        if (Test-Path $app) { Start-Process $app; Log 'RELAUNCHED' }\r\n");
         ps.append("    }\r\n");
-        ps.append("    Log '[END] done'\r\n");
+        ps.append("    Log 'END done'\r\n");
         ps.append("} catch {\r\n");
-        ps.append("    Log \"[ERROR] $($_.Exception.Message)\"\r\n");
+        ps.append("    Log \"ERROR $($_.Exception.Message)\"\r\n");
         ps.append("    exit 1\r\n");
         ps.append("}\r\n");
         return ps.toString();
