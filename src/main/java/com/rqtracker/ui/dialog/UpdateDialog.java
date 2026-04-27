@@ -42,6 +42,7 @@ public class UpdateDialog {
     private UpdateService.UpdateInfo pendingInfo;
     private Path                     downloadedMsi;
     private final AtomicBoolean      cancelled = new AtomicBoolean(false);
+    private final AtomicBoolean      installStarted = new AtomicBoolean(false);
     private Thread                   dlThread;
 
     public UpdateDialog(Window owner, AppConfig appConfig, String checkUrl) {
@@ -189,6 +190,7 @@ public class UpdateDialog {
                 dialog.setMinHeight(240);
             }
             case READY_TO_INSTALL -> {
+                installStarted.set(false);
                 Label ico = new Label("✓");
                 ico.getStyleClass().add("modal-title");
                 Label msg = new Label("下載完成！");
@@ -209,7 +211,12 @@ public class UpdateDialog {
 
                 Button install = new Button("立即安裝");
                 install.getStyleClass().add("btn-primary");
-                install.setOnAction(e -> startInstall());
+                install.setOnAction(e -> {
+                    if (!installStarted.compareAndSet(false, true)) return;
+                    install.setDisable(true);
+                    later.setDisable(true);
+                    startInstall();
+                });
                 footer.getChildren().addAll(later, install);
                 dialog.setMinHeight(280);
             }

@@ -26,8 +26,8 @@ if errorlevel 1 ( echo jpackage failed & exit /b 1 )
 echo.
 echo Package complete. Output directory: target\installer\
 echo.
-if exist "target\installer\RQTracker-1.1.9.msi" (
-    echo Installer: target\installer\RQTracker-1.1.9.msi
+if exist "target\installer\RQTracker-1.1.10.msi" (
+    echo Installer: target\installer\RQTracker-1.1.10.msi
 ) else if exist "target\installer\RQTracker\RQTracker.exe" (
     echo Executable: target\installer\RQTracker\RQTracker.exe
 )
