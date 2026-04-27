@@ -6,6 +6,7 @@ import com.rqtracker.service.DataStore;
 import com.rqtracker.service.ProgressCalc;
 import com.rqtracker.ui.component.ConfirmDialog;
 import com.rqtracker.util.DateTimeUtils;
+import com.rqtracker.util.DialogHelper;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -42,10 +43,10 @@ public class HistoryDialog {
         this.onRestore = onRestore;
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle("歷史紀錄（已歸檔）");
-        dialog.setResizable(true);
         dialog.setMinWidth(580);
         dialog.setMinHeight(300);
 
@@ -76,15 +77,19 @@ public class HistoryDialog {
 
         VBox modal = new VBox(modalHeader, new Separator(), scroll);
         modal.getStyleClass().add("modal");
+        modal.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         modal.setPrefWidth(600);
         modal.setPrefHeight(480);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
+        DialogHelper.makeResizable(dialog, modal);
     }
 
-    public void show() { dialog.showAndWait(); }
+    public void show() { dialog.show(); }
+    public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
 
@@ -152,10 +157,4 @@ public class HistoryDialog {
             });
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

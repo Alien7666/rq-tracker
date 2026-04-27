@@ -4,6 +4,7 @@ import com.rqtracker.model.RQData;
 import com.rqtracker.model.RQVersion;
 import com.rqtracker.service.DataStore;
 import com.rqtracker.util.ClipboardUtils;
+import com.rqtracker.util.DialogHelper;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -12,6 +13,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.util.List;
@@ -40,10 +42,12 @@ public class VerFilesDialog {
             ? rq.getVersions().get(vIdx).getName() : "版本 " + (vIdx + 1);
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle("改動程式 — " + vName);
-        dialog.setResizable(true);
+        dialog.setMinWidth(480);
+        dialog.setMinHeight(360);
 
         // ── Modal 標題 ────────────────────────────────────────────────
         Label titleLabel = new Label("✎ 改動程式 — " + vName);
@@ -106,17 +110,22 @@ public class VerFilesDialog {
 
         VBox modal = new VBox(modalHeader, new Separator(), body, new Separator(), footer);
         modal.getStyleClass().add("modal");
+        modal.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        VBox.setVgrow(body, Priority.ALWAYS);
         modal.setPrefWidth(560);
         modal.setPrefHeight(430);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
+        DialogHelper.makeResizable(dialog, modal);
     }
 
     public void setOnSaved(Runnable onSaved) { this.onSaved = onSaved; }
 
-    public void show() { dialog.showAndWait(); }
+    public void show() { dialog.show(); }
+    public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
 
@@ -144,7 +153,8 @@ public class VerFilesDialog {
 
         // 建立輸出視窗
         Stage outputStage = new Stage();
-        outputStage.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(outputStage);
+        outputStage.initModality(Modality.NONE);
         outputStage.initOwner(dialog);
         outputStage.setTitle("程式碼清單 — " + vName);
 
@@ -180,18 +190,17 @@ public class VerFilesDialog {
 
         VBox modal2 = new VBox(hdr, new Separator(), bodyBox, new Separator(), ftr);
         modal2.getStyleClass().add("modal");
+        modal2.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        VBox.setVgrow(bodyBox, Priority.ALWAYS);
         modal2.setPrefWidth(580);
+        modal2.setPrefHeight(460);
 
         Scene scene2 = new Scene(modal2);
-        applyTheme(scene2);
+        DialogHelper.applyTheme(scene2, getClass());
         outputStage.setScene(scene2);
-        outputStage.showAndWait();
+        DialogHelper.makeMovable(outputStage, hdr);
+        DialogHelper.makeResizable(outputStage, modal2);
+        outputStage.show();
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

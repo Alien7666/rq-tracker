@@ -49,6 +49,8 @@ public class RQContentPanel extends VBox {
     private final Consumer<String>  onEditVersions;
     /** 外部回呼：歸檔 */
     private final Consumer<String>  onArchive;
+    /** 外部回呼：顯示毛玻璃（傳入子視窗 Stage） */
+    private final Consumer<javafx.stage.Stage> onShowGlass;
 
     /** 最近一次磁碟掃描結果（key=taskKey, value=掃描狀態） */
     private final Map<String, TaskResult> scanResults;
@@ -65,7 +67,8 @@ public class RQContentPanel extends VBox {
                           Map<String, TaskResult> scanResults,
                           Consumer<String> onRefresh, Consumer<String> onToast,
                           Runnable onTabRefresh, Consumer<String> onEditVersions,
-                          Consumer<String> onArchive) {
+                          Consumer<String> onArchive,
+                          Consumer<javafx.stage.Stage> onShowGlass) {
         this.dataStore      = dataStore;
         this.appConfig      = appConfig;
         this.rqId           = rqId;
@@ -75,6 +78,7 @@ public class RQContentPanel extends VBox {
         this.onTabRefresh   = onTabRefresh;
         this.onEditVersions = onEditVersions;
         this.onArchive      = onArchive;
+        this.onShowGlass    = onShowGlass;
 
         setSpacing(12);
         setPadding(new Insets(12, 16, 16, 16));
@@ -236,6 +240,7 @@ public class RQContentPanel extends VBox {
             noteBody.setManaged(nowCollapsed);
             collapseIcon.setText(nowCollapsed ? "▸" : "▾");
             saveCollapseState(rqId, "noteBlock", !nowCollapsed);
+            e.consume();
         });
 
         VBox noteBlock = new VBox(noteHeader, noteBody);
@@ -262,17 +267,25 @@ public class RQContentPanel extends VBox {
             doneCount   += extraTasks.stream().filter(t -> !t.isOptional() && Boolean.TRUE.equals(checks.get(t.getKey()))).count();
         }
 
+        boolean sectionDone = (nonOptCount > 0 && doneCount >= nonOptCount);
+        double  sectionPct  = nonOptCount > 0 ? (double) doneCount / nonOptCount : 0.0;
+
         Label badgeLabel = new Label(doneCount + " / " + nonOptCount);
-        badgeLabel.getStyleClass().addAll("section-progress", doneCount == nonOptCount ? "done" : "");
+        badgeLabel.getStyleClass().addAll("section-progress", sectionDone ? "done" : "");
 
         Label iconLabel  = new Label(icon + " " + title);
         iconLabel.getStyleClass().add("section-title");
         Label colIcon = new Label(collapsed ? "▸" : "▾");
         colIcon.getStyleClass().add("section-collapse-icon");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox header = new HBox(6, iconLabel, spacer, badgeLabel, colIcon);
+        ProgressBar sectionBar = new ProgressBar(sectionPct);
+        sectionBar.getStyleClass().add("rq-progress-bar");
+        if (sectionDone) sectionBar.getStyleClass().add("done");
+        HBox.setHgrow(sectionBar, Priority.ALWAYS);
+        sectionBar.setMaxWidth(Double.MAX_VALUE);
+        sectionBar.setMouseTransparent(true);
+
+        HBox header = new HBox(10, iconLabel, sectionBar, badgeLabel, colIcon);
         header.getStyleClass().add("section-header");
         header.setPadding(new Insets(10, 14, 10, 14));
 
@@ -321,6 +334,7 @@ public class RQContentPanel extends VBox {
             body.setManaged(nowCollapsed);
             colIcon.setText(nowCollapsed ? "▸" : "▾");
             saveCollapseState(rqId, collapseKey, !nowCollapsed);
+            e.consume();
         });
 
         VBox card = new VBox(header, body);
@@ -357,6 +371,8 @@ public class RQContentPanel extends VBox {
         vBar.getStyleClass().add("version-prog-bar");
         if (vPct >= 100) vBar.getStyleClass().add("done");
         HBox.setHgrow(vBar, Priority.ALWAYS);
+        vBar.setMaxWidth(Double.MAX_VALUE);
+        vBar.setMouseTransparent(true);
 
         Label vProgText = new Label(vProg.done() + "/" + vProg.total() + "  " + vPct + "%");
         vProgText.getStyleClass().addAll("version-prog-text", vPct >= 100 ? "done" : "");
@@ -367,6 +383,7 @@ public class RQContentPanel extends VBox {
         final int vIdxFinal = vIdx;
         Button verFilesBtn = new Button("✎ 改動程式");
         verFilesBtn.getStyleClass().addAll("btn-ver-files", hasFiles ? "has-files" : "");
+        verFilesBtn.setOnMouseClicked(javafx.scene.input.MouseEvent::consume);
         verFilesBtn.setOnAction(e -> {
             e.consume();
             VerFilesDialog dlg = new VerFilesDialog(
@@ -375,6 +392,7 @@ public class RQContentPanel extends VBox {
                 if (onRefresh != null) onRefresh.accept(rqId);
             });
             dlg.show();
+            if (onShowGlass != null) onShowGlass.accept(dlg.getStage());
         });
 
         Label colIcon = new Label(vCollapsed ? "▸" : "▾");
@@ -401,9 +419,23 @@ public class RQContentPanel extends VBox {
 
         SplitPane vBody = new SplitPane(devSection, svnSection, delSection);
         vBody.getStyleClass().add("version-body");
-        vBody.setDividerPositions(0.333, 0.667);
         vBody.setManaged(!vCollapsed);
         vBody.setVisible(!vCollapsed);
+
+        String splitKey = rqId + "_v" + vIdx;
+        double[] savedPos = appConfig.getSplitPositions(splitKey);
+        if (savedPos != null && savedPos.length == 2) {
+            vBody.setDividerPositions(savedPos[0], savedPos[1]);
+        } else {
+            vBody.setDividerPositions(0.2, 0.6);
+        }
+
+        vBody.getDividers().get(0).positionProperty().addListener((obs, ov, nv) ->
+            appConfig.setSplitPositions(splitKey,
+                new double[]{ vBody.getDividerPositions()[0], vBody.getDividerPositions()[1] }));
+        vBody.getDividers().get(1).positionProperty().addListener((obs, ov, nv) ->
+            appConfig.setSplitPositions(splitKey,
+                new double[]{ vBody.getDividerPositions()[0], vBody.getDividerPositions()[1] }));
 
         vHeader.setOnMouseClicked(e -> {
             boolean nowCollapsed = !vBody.isVisible();
@@ -411,6 +443,7 @@ public class RQContentPanel extends VBox {
             vBody.setManaged(nowCollapsed);
             colIcon.setText(nowCollapsed ? "▸" : "▾");
             saveCollapseState(rqId, "vcard_" + vIdx, !nowCollapsed);
+            e.consume();
         });
 
         VBox card = new VBox(vHeader, vBody);
@@ -486,7 +519,7 @@ public class RQContentPanel extends VBox {
                         dataStore.saveRQ(rqId, r);
                         if (onRefresh != null) onRefresh.accept(rqId);
                         if (onTabRefresh != null) onTabRefresh.run();
-                    }));
+                    }, onShowGlass));
         } else {
             doCheck(rqId, key);
         }

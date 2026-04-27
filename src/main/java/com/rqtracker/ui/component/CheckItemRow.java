@@ -6,12 +6,17 @@ import com.rqtracker.util.ClipboardUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 
 import java.util.function.BiConsumer;
 
@@ -21,18 +26,23 @@ import java.util.function.BiConsumer;
  */
 public class CheckItemRow extends HBox {
 
+    // ── 主題色（對應 rq-theme.css 變數，Canvas 無法讀 CSS 變數需硬寫） ──
+    private static final Color C_SURFACE2     = Color.web("#1e242d");
+    private static final Color C_BORDER       = Color.web("#4d5f75");
+    private static final Color C_ACCENT       = Color.web("#5a9e78");
+    private static final Color C_ACCENT_HOVER = Color.web("#73b892");
+    private static final Color C_CHECK        = Color.web("#ffffff");
+
     private final TaskDef task;
     private boolean checked;
 
-    /** (rqId, taskKey) → 處理勾選 / 取消勾選 */
     private final BiConsumer<String, String> onCheckboxClick;
-    /** (rqId, taskKey) → 點整列（只做勾選） */
     private final BiConsumer<String, String> onRowClick;
 
     private final String rqId;
-    private final Label  checkBox;
+    private final Canvas checkCanvas;
+    private boolean hovered = false;
 
-    /** fileDot：磁碟掃描狀態圓點（階段 7 實作），預留位置 */
     private Label fileDot;
 
     public CheckItemRow(String rqId, TaskDef task, boolean checked, boolean showStep,
@@ -46,8 +56,8 @@ public class CheckItemRow extends HBox {
         this.onRowClick = onRowClick;
 
         getStyleClass().add("check-item");
-        if (checked)         getStyleClass().add("checked");
-        if (task.isWarn())   getStyleClass().add("warn-item");
+        if (checked)           getStyleClass().add("checked");
+        if (task.isWarn())     getStyleClass().add("warn-item");
         if (task.isOptional()) getStyleClass().add("optional-item");
 
         setAlignment(Pos.TOP_LEFT);
@@ -55,22 +65,22 @@ public class CheckItemRow extends HBox {
         setSpacing(8);
         setCursor(Cursor.HAND);
 
-        // ── 勾選方格 ───────────────────────────────────────────────────────
-        checkBox = new Label(checked ? "✓" : "");
-        checkBox.getStyleClass().add("check-box");
-        checkBox.setMinSize(20, 20);
-        checkBox.setMaxSize(20, 20);
-        checkBox.setAlignment(Pos.CENTER);
-        checkBox.setOnMouseClicked(e -> {
+        // ── Canvas 勾選方格 ────────────────────────────────────────────
+        checkCanvas = new Canvas(22, 22);
+        drawBox(checked, false);
+
+        checkCanvas.setOnMouseEntered(e -> { hovered = true;  drawBox(this.checked, true); });
+        checkCanvas.setOnMouseExited (e -> { hovered = false; drawBox(this.checked, false); });
+        checkCanvas.setOnMouseClicked(e -> {
             e.consume();
             if (onCheckboxClick != null) onCheckboxClick.accept(rqId, task.getKey());
         });
+        checkCanvas.setCursor(Cursor.HAND);
 
-        // ── 標籤區域 ───────────────────────────────────────────────────────
+        // ── 標籤區域 ───────────────────────────────────────────────────
         VBox labelBox = new VBox(2);
         HBox.setHgrow(labelBox, Priority.ALWAYS);
 
-        // 主標籤行
         HBox labelRow = new HBox(4);
         labelRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -82,6 +92,7 @@ public class CheckItemRow extends HBox {
 
         Label mainLabel = new Label(task.getLabel());
         mainLabel.getStyleClass().add("check-label-text");
+        if (checked) mainLabel.getStyleClass().add("checked");
         labelRow.getChildren().add(mainLabel);
 
         if (task.getSub() != null) {
@@ -102,22 +113,18 @@ public class CheckItemRow extends HBox {
 
         labelBox.getChildren().add(labelRow);
 
-        // 路徑 / 檔名行
         if (task.getFolder() != null || task.getFilename() != null) {
-            VBox fileBox = buildFileHint(task);
-            labelBox.getChildren().add(fileBox);
+            labelBox.getChildren().add(buildFileHint(task));
         }
 
-        // 時間戳
         if (checked && timestamp != null && !timestamp.isBlank()) {
             Label tsLabel = new Label("✓ " + timestamp);
             tsLabel.getStyleClass().add("check-timestamp");
             labelBox.getChildren().add(tsLabel);
         }
 
-        getChildren().addAll(checkBox, labelBox);
+        getChildren().addAll(checkCanvas, labelBox);
 
-        // 整列點擊 → 只勾選（已勾不動）
         setOnMouseClicked(e -> {
             if (onRowClick != null) onRowClick.accept(rqId, task.getKey());
         });
@@ -125,14 +132,67 @@ public class CheckItemRow extends HBox {
 
     public void setChecked(boolean checked) {
         this.checked = checked;
-        checkBox.setText(checked ? "✓" : "");
-        if (checked) getStyleClass().add("checked");
-        else         getStyleClass().remove("checked");
+        drawBox(checked, hovered);
+        if (checked) {
+            getStyleClass().add("checked");
+        } else {
+            getStyleClass().remove("checked");
+        }
     }
 
     public TaskDef getTask() { return task; }
 
-    // ── 私有 ──────────────────────────────────────────────────────────────
+    // ── Canvas 繪製 ────────────────────────────────────────────────────
+
+    private void drawBox(boolean isChecked, boolean isHovered) {
+        GraphicsContext gc = checkCanvas.getGraphicsContext2D();
+        double w = checkCanvas.getWidth();
+        double h = checkCanvas.getHeight();
+        double pad = 1.0;
+        double size = w - pad * 2;
+        double r = 5.0;
+
+        gc.clearRect(0, 0, w, h);
+
+        if (isChecked) {
+            // 填色背景
+            Color bg = isHovered ? C_ACCENT_HOVER : C_ACCENT;
+            gc.setFill(bg);
+            gc.fillRoundRect(pad, pad, size, size, r * 2, r * 2);
+
+            // 微光暈（模擬 dropshadow）
+            gc.setFill(Color.color(
+                bg.getRed(), bg.getGreen(), bg.getBlue(), 0.25));
+            gc.fillRoundRect(pad - 1.5, pad - 1.5, size + 3, size + 3, r * 2 + 2, r * 2 + 2);
+            gc.setFill(bg);
+            gc.fillRoundRect(pad, pad, size, size, r * 2, r * 2);
+
+            // 向量勾勾路徑（相對於 22×22 canvas）
+            gc.setStroke(C_CHECK);
+            gc.setLineWidth(2.1);
+            gc.setLineCap(StrokeLineCap.ROUND);
+            gc.setLineJoin(StrokeLineJoin.ROUND);
+            gc.strokePolyline(
+                new double[]{ 5.5, 9.2, 16.5 },
+                new double[]{ 11.2, 15.5, 6.5 },
+                3
+            );
+
+        } else {
+            // 空框
+            Color borderColor = isHovered ? C_ACCENT : C_BORDER;
+            Color bgColor     = isHovered ? Color.web("#5b8fac22") : C_SURFACE2;
+
+            gc.setFill(bgColor);
+            gc.fillRoundRect(pad, pad, size, size, r * 2, r * 2);
+
+            gc.setStroke(borderColor);
+            gc.setLineWidth(1.5);
+            gc.strokeRoundRect(pad, pad, size, size, r * 2, r * 2);
+        }
+    }
+
+    // ── 私有輔助 ───────────────────────────────────────────────────────
 
     private VBox buildFileHint(TaskDef t) {
         VBox box = new VBox(1);
@@ -142,19 +202,15 @@ public class CheckItemRow extends HBox {
             HBox folderRow = new HBox(4);
             folderRow.setAlignment(Pos.CENTER_LEFT);
 
-            // 磁碟狀態圓點（階段 7 補充）
-            fileDot = new Label("●");
+            fileDot = new Label("");
             fileDot.getStyleClass().addAll("file-dot", "fs-unknown");
-            if (t.getFilename() == null) {
-                folderRow.getChildren().add(fileDot);
-            }
+            if (t.getFilename() == null) folderRow.getChildren().add(fileDot);
 
             Label folderLabel = new Label(t.getFolder());
             folderLabel.getStyleClass().add("folder-path");
             folderLabel.setWrapText(false);
 
-            Button copyBtn = copyButton(t.getFolder());
-            folderRow.getChildren().addAll(folderLabel, copyBtn);
+            folderRow.getChildren().addAll(folderLabel, copyButton(t.getFolder()));
             box.getChildren().add(folderRow);
         }
 
@@ -162,7 +218,7 @@ public class CheckItemRow extends HBox {
             HBox fileRow = new HBox(4);
             fileRow.setAlignment(Pos.CENTER_LEFT);
 
-            Label dot = new Label("●");
+            Label dot = new Label("");
             dot.getStyleClass().addAll("file-dot", "fs-unknown");
             fileDot = dot;
 
@@ -170,8 +226,7 @@ public class CheckItemRow extends HBox {
             fnLabel.getStyleClass().add("filename-text");
             fnLabel.setWrapText(false);
 
-            Button copyBtn = copyButton(t.getFilename());
-            fileRow.getChildren().addAll(dot, fnLabel, copyBtn);
+            fileRow.getChildren().addAll(dot, fnLabel, copyButton(t.getFilename()));
             box.getChildren().add(fileRow);
         }
 
@@ -181,14 +236,10 @@ public class CheckItemRow extends HBox {
     private Button copyButton(String text) {
         Button btn = new Button("⧉");
         btn.getStyleClass().add("copy-btn");
-        btn.setOnAction(e -> {
-            e.consume();
-            ClipboardUtils.copyText(text);
-        });
+        btn.setOnAction(e -> { e.consume(); ClipboardUtils.copyText(text); });
         return btn;
     }
 
-    /** 更新磁碟狀態圓點的 CSS class 並加 Tooltip 說明。 */
     public void setScanState(String cssClass) {
         if (fileDot != null) {
             fileDot.getStyleClass().removeIf(c -> c.startsWith("fs-"));

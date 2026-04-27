@@ -1,6 +1,7 @@
 package com.rqtracker.ui.dialog;
 
 import com.rqtracker.service.AppConfig;
+import com.rqtracker.util.DialogHelper;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -10,6 +11,7 @@ import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.io.File;
@@ -33,10 +35,10 @@ public class SettingsDialog {
         this.appConfig = appConfig;
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle("路徑設定");
-        dialog.setResizable(true);
         dialog.setMinWidth(520);
         dialog.setMinHeight(400);
 
@@ -95,7 +97,8 @@ public class SettingsDialog {
                 downloadsField, "downloads"),
             spacerH(14),
             buildPathRow("📁 SVN 版控資料夾",
-                "本機 SVN 工作目錄的根路徑。\n掃描時系統會在此找 commit 相關文件及路徑。",
+                "本機 SVN checkout 的「新系統開發」資料夾路徑，例：C:\\SVN\\新系統開發\n" +
+                "系統會在此下的 10_增修維護階段、9_文件 等子目錄產生路徑提示。",
                 svnField, "svn"),
             spacerH(20),
             buildGroupHeader("💾 自動備份"),
@@ -143,13 +146,16 @@ public class SettingsDialog {
         modal.setPrefHeight(520);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
+        DialogHelper.makeResizable(dialog, modal);
     }
 
     public void setOnSaved(Runnable onSaved) { this.onSaved = onSaved; }
 
-    public void show() { dialog.showAndWait(); }
+    public void show() { dialog.show(); }
+    public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
 
@@ -267,10 +273,4 @@ public class SettingsDialog {
         return (s == null || s.isBlank()) ? defaultVal : s;
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

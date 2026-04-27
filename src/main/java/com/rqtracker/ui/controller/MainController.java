@@ -30,6 +30,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -48,17 +50,22 @@ import java.util.stream.Collectors;
  */
 public class MainController {
 
+    private static final Logger LOG = Logger.getLogger(MainController.class.getName());
+
     private final DataStore        dataStore;
     private final AppConfig        appConfig;
     private final DiskScanService  diskScanService;
 
     private Stage             primaryStage;
     private SidePanel         sidePanel;
+    private BorderPane        appLayout;     // 主佈局（毛玻璃 blur 的目標）
     private BorderPane        contentPane;   // CENTER of app-layout
     private StackPane         rqContentArea;
     private ToastNotification toast;
     private VBox              scanResultPanel;
     private StackPane         rootPane;      // 用於手動定位 scanResultPanel
+    private Pane              glassPane;     // 毛玻璃遮罩
+    private Stage             activeModal;   // 目前顯示中的子視窗
 
     // RQ Header 元件（顯示在 contentPane TOP）
     private HBox  rqHeader;
@@ -69,6 +76,7 @@ public class MainController {
     private Button rqFolderBtn;
     private Button rqEditVerBtn;
     private Button rqArchiveBtn;
+    private Button rqScanBtn;
 
     private String activeRqId;
 
@@ -124,10 +132,20 @@ public class MainController {
         contentPane.setUserData(new Object[]{ emptyState, contentScroll });
 
         // ── 整體 BorderPane 佈局 ─────────────────────────────────────
-        BorderPane appLayout = new BorderPane();
+        appLayout = new BorderPane();
         appLayout.getStyleClass().add("app-layout");
         appLayout.setLeft(sidePanel);
         appLayout.setCenter(contentPane);
+
+        // ── 毛玻璃遮罩（子視窗開啟時顯示） ─────────────────────────
+        glassPane = new Pane();
+        glassPane.getStyleClass().add("glass-overlay");
+        glassPane.setVisible(false);
+        glassPane.setOnMouseClicked(e -> {
+            if (activeModal != null && activeModal.isShowing()) {
+                activeModal.close();
+            }
+        });
 
         // ── Overlay：Toast + 掃描結果面板 ───────────────────────────
         toast = new ToastNotification();
@@ -139,7 +157,7 @@ public class MainController {
         scanResultPanel.setVisible(false);
         scanResultPanel.setManaged(false);
 
-        StackPane root = new StackPane(appLayout, toast, scanResultPanel);
+        StackPane root = new StackPane(appLayout, glassPane, toast, scanResultPanel);
         root.getStyleClass().add("app-root");
         rootPane = root;
 
@@ -187,8 +205,8 @@ public class MainController {
 
         rqHeaderBar = new ProgressBar(0);
         rqHeaderBar.getStyleClass().add("rq-header-bar");
-        rqHeaderBar.setPrefWidth(140);
-        rqHeaderBar.setPrefHeight(7);
+        rqHeaderBar.setPrefWidth(200);
+        rqHeaderBar.setPrefHeight(11);
 
         rqHeaderPct = new Label("0%");
         rqHeaderPct.getStyleClass().add("rq-header-pct");
@@ -207,8 +225,12 @@ public class MainController {
         rqArchiveBtn.setManaged(false);
         rqArchiveBtn.setOnAction(e -> { if (activeRqId != null) archiveRQ(activeRqId); });
 
+        rqScanBtn = new Button("⟳ 掃描");
+        rqScanBtn.getStyleClass().addAll("btn-ghost", "btn-sm");
+        rqScanBtn.setOnAction(e -> triggerManualScan());
+
         HBox header = new HBox(12, titleBox, rqHeaderBar, rqHeaderPct,
-                               rqFolderBtn, rqEditVerBtn, rqArchiveBtn);
+                               rqScanBtn, rqFolderBtn, rqEditVerBtn, rqArchiveBtn);
         header.getStyleClass().add("rq-header");
         header.setAlignment(Pos.CENTER_LEFT);
         return header;
@@ -269,7 +291,8 @@ public class MainController {
             this::showToast,
             this::refreshSidePanel,
             this::openEditVersions,
-            this::archiveRQ
+            this::archiveRQ,
+            this::showGlass
         );
         rqContentArea.getChildren().setAll(panel);
     }
@@ -319,6 +342,7 @@ public class MainController {
             showToast("已建立 " + rqId);
         });
         dlg.show();
+        showGlass(dlg.getStage());
     }
 
     private void openEditVersions(String rqId) {
@@ -336,6 +360,7 @@ public class MainController {
             showToast("已更新版本設定");
         });
         dlg.show();
+        showGlass(dlg.getStage());
     }
 
     private void openFolderList() {
@@ -345,6 +370,7 @@ public class MainController {
                 new com.rqtracker.ui.dialog.FolderListDialog(
                     primaryStage, dataStore, appConfig, activeRqId);
             dlg.show();
+            showGlass(dlg.getStage());
         } catch (Exception ignored) {}
     }
 
@@ -359,11 +385,11 @@ public class MainController {
             if (activeRqId != null) renderRQ(activeRqId);
             else showEmptyState();
             showToast("已歸檔 " + rqId);
-        });
+        }, this::showGlass);
     }
 
     private void askDeleteRQ(String rqId) {
-        ConfirmDialog.confirmDelete(primaryStage, rqId, () -> deleteRQ(rqId));
+        ConfirmDialog.confirmDelete(primaryStage, rqId, () -> deleteRQ(rqId), this::showGlass);
     }
 
     private void deleteRQ(String rqId) {
@@ -392,6 +418,7 @@ public class MainController {
                 showToast("✓ 設定已儲存");
             });
             dlg.show();
+            showGlass(dlg.getStage());
         });
 
         sidePanel.menuHistory.setOnAction(e -> openHistoryDialog());
@@ -421,6 +448,7 @@ public class MainController {
         UpdateDialog dlg = new UpdateDialog(primaryStage, appConfig,
             appConfig.getUpdateCheckUrl());
         dlg.show();
+        showGlass(dlg.getStage());
     }
 
     private void scheduleUpdateCheck() {
@@ -439,7 +467,10 @@ public class MainController {
                 });
                 appConfig.setLastUpdateCheckDate(today);
                 appConfig.save();
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException ignored) {
+            } catch (Exception e) {
+                LOG.warning("自動更新檢查失敗：" + e.getMessage());
+            }
         }, "UpdateCheck");
         t.setDaemon(true);
         t.start();
@@ -456,6 +487,7 @@ public class MainController {
                 showToast("已復原 " + restored);
             });
         dlg.show();
+        showGlass(dlg.getStage());
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -473,6 +505,21 @@ public class MainController {
 
     public void showToast(String message) {
         Platform.runLater(() -> toast.show(message));
+    }
+
+    void showGlass(Stage modal) {
+        if (!Platform.isFxApplicationThread()) { Platform.runLater(() -> showGlass(modal)); return; }
+        activeModal = modal;
+        appLayout.setEffect(new GaussianBlur(10));
+        glassPane.setVisible(true);
+        modal.setOnHidden(e -> hideGlass());
+    }
+
+    private void hideGlass() {
+        if (!Platform.isFxApplicationThread()) { Platform.runLater(this::hideGlass); return; }
+        activeModal = null;
+        appLayout.setEffect(null);
+        glassPane.setVisible(false);
     }
 
     private VBox buildEmptyState() {

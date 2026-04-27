@@ -341,21 +341,23 @@
     -fx-font-weight: bold;
 }
 .version-prog-bar {
-    -fx-pref-height: 8;
-    -fx-background-color: -rq-surface2;
-    -fx-border-radius: 5;
-    -fx-background-radius: 5;
+    -fx-pref-height: 12;
+    -fx-background-color: #1a2233;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
 }
 .version-prog-bar .bar {
-    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
-    -fx-background-radius: 5;
+    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, #4e8db0, 5, 0.4, 0, 0);
 }
 .version-prog-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
+    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
+    -fx-effect: dropshadow(gaussian, #4a9068, 5, 0.4, 0, 0);
 }
 .version-prog-bar .track {
-    -fx-background-color: -rq-surface2;
-    -fx-background-radius: 5;
+    -fx-background-color: #1a2233;
+    -fx-background-radius: 6;
 }
 .version-prog-text {
     -fx-text-fill: -rq-text-muted;
@@ -458,32 +460,7 @@
 .check-item.optional-item .check-label-text {
     -fx-text-fill: -rq-optional;
 }
-/* 自訂複選框（P0 fix: Java 使用 .check-box，原 CSS 的 .check-box-custom）*/
-.check-box {
-    -fx-min-width: 20;
-    -fx-min-height: 20;
-    -fx-max-width: 20;
-    -fx-max-height: 20;
-    -fx-border-color: -rq-border-dark;
-    -fx-border-width: 1.5;
-    -fx-border-radius: 5;
-    -fx-background-radius: 5;
-    -fx-background-color: -rq-surface2;
-    -fx-cursor: hand;
-    -fx-alignment: center;
-    -fx-font-size: 13px;
-    -fx-text-fill: transparent;
-}
-.check-box:hover {
-    -fx-border-color: -rq-accent;
-    -fx-background-color: -rq-accent-light;
-}
-.check-box.checked {
-    -fx-background-color: -rq-accent;
-    -fx-border-color: -rq-accent;
-    -fx-text-fill: white;
-    -fx-effect: dropshadow(gaussian, -rq-accent, 4, 0.3, 0, 0);
-}
+/* 勾選方格由 Canvas 繪製，CSS 僅保留供第三方樣式覆蓋用 */
 .check-label-text {
     -fx-text-fill: -rq-text;
     -fx-font-size: 14px;
@@ -557,12 +534,16 @@
 
 /* ── 08. 磁碟狀態圓點 ───────────────────────────────────────────────────────*/
 .file-dot {
-    -fx-min-width: 9;
-    -fx-min-height: 9;
-    -fx-max-width: 9;
-    -fx-max-height: 9;
+    -fx-min-width: 10;
+    -fx-pref-width: 10;
+    -fx-max-width: 10;
+    -fx-min-height: 10;
+    -fx-pref-height: 10;
+    -fx-max-height: 10;
     -fx-background-radius: 5;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0.2, 0, 0);
+    -fx-padding: 0;
+    -fx-text-fill: transparent;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 3, 0.3, 0, 0);
 }
 .file-dot.fs-file    { -fx-background-color: #34d472; }
 .file-dot.fs-partial { -fx-background-color: #f0ba1a; }
@@ -575,24 +556,24 @@
 /* ── 09. 進度條 ─────────────────────────────────────────────────────────────*/
 .rq-progress-bar {
     -fx-accent: -rq-accent;
-    -fx-background-color: -rq-surface2;
-    -fx-border-radius: 6;
-    -fx-background-radius: 6;
+    -fx-background-color: #1a2233;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
     -fx-border-color: transparent;
-    -fx-pref-height: 10;
+    -fx-pref-height: 14;
 }
 .rq-progress-bar .bar {
-    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
-    -fx-background-radius: 6;
-    -fx-effect: dropshadow(gaussian, derive(-rq-accent, -30%), 4, 0.4, 0, 0);
+    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-radius: 7;
+    -fx-effect: dropshadow(gaussian, #4e8db0, 6, 0.5, 0, 0);
 }
 .rq-progress-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
-    -fx-effect: dropshadow(gaussian, derive(-rq-success, -30%), 4, 0.4, 0, 0);
+    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
+    -fx-effect: dropshadow(gaussian, #4a9068, 6, 0.5, 0, 0);
 }
 .rq-progress-bar .track {
-    -fx-background-color: -rq-surface2;
-    -fx-background-radius: 6;
+    -fx-background-color: #1a2233;
+    -fx-background-radius: 7;
 }
 
 /* ── 10. 100% 完成歸檔橫幅 ─────────────────────────────────────────────────*/
@@ -1381,23 +1362,29 @@
     -fx-text-fill: -rq-accent;
 }
 
-/* 迷你進度條（3px 高） */
+/* 迷你進度條（6px 高）— 必須覆蓋 modena 預設 track padding 才能顯示 */
 .rq-item-bar {
-    -fx-pref-height: 3;
-    -fx-max-height: 3;
-    -fx-background-radius: 2;
+    -fx-min-height: 6;
+    -fx-pref-height: 6;
+    -fx-max-height: 6;
+    -fx-background-color: transparent;
     -fx-border-color: transparent;
+    -fx-padding: 0;
 }
 .rq-item-bar .track {
-    -fx-background-color: -rq-border;
-    -fx-background-radius: 2;
+    -fx-background-color: #2a3545;
+    -fx-background-radius: 3;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 .rq-item-bar .bar {
-    -fx-background-color: -rq-accent;
-    -fx-background-radius: 2;
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
+    -fx-background-radius: 3;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 .rq-item-bar.done .bar {
-    -fx-background-color: -rq-success;
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
 }
 
 /* 刪除按鈕（Java 代碼控制 opacity） */
@@ -1437,22 +1424,22 @@
     -fx-font-size: 12px;
 }
 .rq-header-bar {
-    -fx-pref-height: 7;
-    -fx-background-radius: 4;
+    -fx-pref-height: 11;
+    -fx-background-radius: 6;
     -fx-border-color: transparent;
 }
 .rq-header-bar .track {
-    -fx-background-color: -rq-surface2;
-    -fx-background-radius: 4;
+    -fx-background-color: #1a2233;
+    -fx-background-radius: 6;
 }
 .rq-header-bar .bar {
-    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
-    -fx-background-radius: 4;
-    -fx-effect: dropshadow(gaussian, derive(-rq-accent, -30%), 4, 0.4, 0, 0);
+    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, #4e8db0, 6, 0.5, 0, 0);
 }
 .rq-header-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
-    -fx-effect: dropshadow(gaussian, derive(-rq-success, -30%), 4, 0.4, 0, 0);
+    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
+    -fx-effect: dropshadow(gaussian, #4a9068, 6, 0.5, 0, 0);
 }
 .rq-header-pct {
     -fx-text-fill: -rq-text;
@@ -1548,4 +1535,10 @@
     -fx-padding: 6 12 6 12;
     -fx-cursor: hand;
     -fx-alignment: center;
+}
+
+/* ── 毛玻璃遮罩（子視窗開啟時覆蓋主視窗） ──────────────────────── */
+.glass-overlay {
+    -fx-background-color: rgba(10, 14, 22, 0.48);
+    -fx-cursor: hand;
 }

@@ -32,34 +32,35 @@ public final class UpdateService {
     /**
      * 向 url 發出 GET 請求，若伺服器版本比 currentVersion 新則回傳 UpdateInfo。
      * 支援 GitHub Releases API 與自訂 JSON 兩種格式。
+     * 網路或解析錯誤時拋出例外，由呼叫端決定如何呈現。
      */
-    public static Optional<UpdateInfo> checkForUpdate(String url, String currentVersion) {
+    public static Optional<UpdateInfo> checkForUpdate(String url, String currentVersion)
+            throws IOException, InterruptedException {
         if (url == null || url.isBlank()) return Optional.empty();
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-            HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Accept", "application/json")
-                .header("User-Agent", "RQTracker/" + currentVersion)
-                .timeout(Duration.ofSeconds(15))
-                .GET()
-                .build();
-            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() != 200) return Optional.empty();
 
-            UpdateInfo info = url.contains("api.github.com")
-                ? parseGitHub(resp.body())
-                : parseCustomJson(resp.body());
+        HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "RQTracker/" + currentVersion)
+            .timeout(Duration.ofSeconds(15))
+            .GET()
+            .build();
+        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200)
+            throw new IOException("伺服器回傳 HTTP " + resp.statusCode());
 
-            if (info == null) return Optional.empty();
-            return isNewer(info.version(), currentVersion) ? Optional.of(info) : Optional.empty();
-        } catch (Exception e) {
-            LOG.warning("更新檢查失敗：" + e.getMessage());
-            return Optional.empty();
-        }
+        UpdateInfo info = url.contains("api.github.com")
+            ? parseGitHub(resp.body())
+            : parseCustomJson(resp.body());
+
+        if (info == null)
+            throw new IOException("無法解析版本資訊（回應格式不符）");
+
+        return isNewer(info.version(), currentVersion) ? Optional.of(info) : Optional.empty();
     }
 
     // ── 下載 MSI ──────────────────────────────────────────────────────────────
@@ -114,12 +115,50 @@ public final class UpdateService {
     }
 
     /**
-     * 啟動 MSI 安裝程式後退出 JVM。
-     * 採用 /passive 模式（顯示進度條但不需使用者點擊）。
+     * 靜默安裝並在完成後自動重啟。
+     * 流程：寫入 PowerShell helper → 啟動 helper → 關閉 JVM。
+     * Helper 會等待 app 完全關閉後執行 msiexec /quiet，完成後重新啟動 exe。
      */
     public static void launchInstaller(Path msi) throws IOException {
-        new ProcessBuilder("msiexec", "/i", msi.toAbsolutePath().toString(), "/passive")
-            .start();
+        String msiPath = msi.toAbsolutePath().toString();
+
+        // 取得目前執行檔路徑（jpackage 安裝後為 RQTracker.exe）
+        String exePath = ProcessHandle.current().info().command().orElse("");
+        boolean canRelaunch = !exePath.isBlank()
+            && exePath.toLowerCase().endsWith(".exe")
+            && !exePath.toLowerCase().contains("java");
+
+        // 建構 PowerShell helper script
+        // 說明：使用兩段式提權：外層 PowerShell（Hidden）→ 內層 Start-Process -Verb RunAs
+        // -Verb RunAs 會觸發 UAC（即使父程序是隱藏視窗），使用者按允許後靜默安裝
+        String safeMsi = msiPath.replace("'", "''");
+        String safeExe = canRelaunch ? exePath.replace("'", "''") : "";
+
+        StringBuilder ps = new StringBuilder();
+        ps.append("Start-Sleep -Seconds 4\n");
+        ps.append("$msi = '").append(safeMsi).append("'\n");
+        // -Verb RunAs 觸發 UAC；-Wait 等待安裝完成；-PassThru 取得結束碼
+        ps.append("$proc = Start-Process msiexec -ArgumentList @('/i', $msi, '/quiet', '/norestart') -Verb RunAs -Wait -PassThru\n");
+        if (canRelaunch) {
+            ps.append("if ($proc -ne $null -and $proc.ExitCode -eq 0) {\n");
+            ps.append("    Start-Sleep -Seconds 2\n");
+            ps.append("    Start-Process '").append(safeExe).append("'\n");
+            ps.append("}\n");
+        }
+
+        Path psFile = java.nio.file.Path.of(
+            System.getProperty("java.io.tmpdir"), "rq-update-helper.ps1");
+        java.nio.file.Files.writeString(psFile, ps.toString(),
+            java.nio.charset.StandardCharsets.UTF_8);
+
+        new ProcessBuilder(
+            "powershell.exe",
+            "-ExecutionPolicy", "Bypass",
+            "-NonInteractive",
+            "-WindowStyle", "Hidden",
+            "-File", psFile.toString()
+        ).start();
+
         javafx.application.Platform.exit();
         System.exit(0);
     }

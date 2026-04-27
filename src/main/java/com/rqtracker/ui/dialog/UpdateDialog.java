@@ -3,6 +3,7 @@ package com.rqtracker.ui.dialog;
 import com.rqtracker.BuildInfo;
 import com.rqtracker.service.AppConfig;
 import com.rqtracker.service.UpdateService;
+import com.rqtracker.util.DialogHelper;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -12,6 +13,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.nio.file.Path;
@@ -46,10 +48,10 @@ public class UpdateDialog {
         this.checkUrl  = checkUrl;
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle("軟體更新");
-        dialog.setResizable(false);
 
         Label titleLabel = new Label("⬆ 軟體更新");
         titleLabel.getStyleClass().add("modal-title");
@@ -88,11 +90,14 @@ public class UpdateDialog {
         modal.setPrefHeight(280);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
 
         dialog.setOnCloseRequest(e -> cancelAndClose());
     }
+
+    public Stage getStage() { return dialog; }
 
     public void show() {
         dialog.show();
@@ -187,7 +192,9 @@ public class UpdateDialog {
                 ico.getStyleClass().add("modal-title");
                 Label msg = new Label("下載完成！");
                 msg.getStyleClass().add("form-label");
-                Label hint = new Label("點「立即安裝」將關閉應用程式並啟動安裝精靈。");
+                Label hint = new Label(
+                    "點「立即安裝」後應用程式將關閉，在背景靜默安裝，完成後自動重新啟動。\n" +
+                    "（安裝過程可能出現一次 Windows 授權確認對話框）");
                 hint.getStyleClass().add("form-hint");
                 hint.setWrapText(true);
 
@@ -199,15 +206,9 @@ public class UpdateDialog {
 
                 Button install = new Button("立即安裝");
                 install.getStyleClass().add("btn-primary");
-                install.setOnAction(e -> {
-                    try {
-                        UpdateService.launchInstaller(downloadedMsi);
-                    } catch (Exception ex) {
-                        showError("無法啟動安裝程式：" + ex.getMessage());
-                    }
-                });
+                install.setOnAction(e -> startInstall());
                 footer.getChildren().addAll(later, install);
-                dialog.setMinHeight(260);
+                dialog.setMinHeight(280);
             }
             case ERROR -> {
                 Label ico = new Label("✗");
@@ -227,6 +228,10 @@ public class UpdateDialog {
     // ── 非同步操作 ────────────────────────────────────────────────────────────
 
     private void startCheck() {
+        if (checkUrl == null || checkUrl.isBlank()) {
+            Platform.runLater(() -> showError("尚未設定更新伺服器網址，請至設定頁面填入更新 URL。"));
+            return;
+        }
         Thread t = new Thread(() -> {
             try {
                 Optional<UpdateService.UpdateInfo> info =
@@ -275,6 +280,33 @@ public class UpdateDialog {
         dlThread.start();
     }
 
+    private void startInstall() {
+        // 顯示「安裝中」提示後等待 1.5s 再關閉，讓使用者看到訊息
+        body.getChildren().clear();
+        footer.getChildren().clear();
+
+        Label ico = new Label("⏳");
+        ico.getStyleClass().add("modal-title");
+        Label msg = new Label("正在準備靜默安裝…");
+        msg.getStyleClass().add("form-label");
+        Label hint = new Label("應用程式即將關閉，安裝完成後將自動重新啟動。");
+        hint.getStyleClass().add("form-hint");
+        hint.setWrapText(true);
+        body.getChildren().addAll(ico, msg, hint);
+        dialog.setMinHeight(240);
+
+        javafx.animation.PauseTransition pause =
+            new javafx.animation.PauseTransition(javafx.util.Duration.millis(1500));
+        pause.setOnFinished(e -> {
+            try {
+                UpdateService.launchInstaller(downloadedMsi);
+            } catch (Exception ex) {
+                showError("無法啟動安裝程式：" + ex.getMessage());
+            }
+        });
+        pause.play();
+    }
+
     private void showError(String msg) {
         statusLbl.setText(msg);
         showState(State.ERROR);
@@ -286,10 +318,4 @@ public class UpdateDialog {
         dialog.close();
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

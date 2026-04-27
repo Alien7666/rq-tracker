@@ -8,8 +8,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import com.rqtracker.util.DialogHelper;
+
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.time.Instant;
@@ -44,10 +47,10 @@ public class NewEditRQDialog {
         this.isEdit = (existing != null);
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle(isEdit ? "編輯 RQ" : "新增 RQ");
-        dialog.setResizable(true);
         dialog.setMinWidth(520);
         dialog.setMinHeight(360);
 
@@ -161,13 +164,16 @@ public class NewEditRQDialog {
         modal.setPrefHeight(530);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
+        DialogHelper.makeResizable(dialog, modal);
     }
 
     public void setOnSubmit(Consumer<Result> handler) { this.onSubmit = handler; }
 
-    public void show() { dialog.showAndWait(); }
+    public void show() { dialog.show(); }
+    public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
 
@@ -223,10 +229,4 @@ public class NewEditRQDialog {
         alert.showAndWait();
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

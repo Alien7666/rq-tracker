@@ -7,6 +7,7 @@ import com.rqtracker.service.DataStore;
 import com.rqtracker.service.TaskFactory;
 import com.rqtracker.util.ClipboardUtils;
 import com.rqtracker.util.DateTimeUtils;
+import com.rqtracker.util.DialogHelper;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -16,6 +17,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.util.*;
@@ -47,10 +49,10 @@ public class FolderListDialog {
         this.rqId      = rqId;
 
         dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
+        DialogHelper.initTransparent(dialog);
+        dialog.initModality(Modality.NONE);
         dialog.initOwner(owner);
         dialog.setTitle("資料夾清單");
-        dialog.setResizable(true);
         dialog.setMinWidth(600);
         dialog.setMinHeight(400);
 
@@ -80,19 +82,23 @@ public class FolderListDialog {
 
         VBox modal = new VBox(modalHeader, new Separator(), scroll);
         modal.getStyleClass().add("modal");
+        modal.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         modal.setPrefWidth(740);
         modal.setPrefHeight(580);
 
         Scene scene = new Scene(modal);
-        applyTheme(scene);
+        DialogHelper.applyTheme(scene, getClass());
         dialog.setScene(scene);
+        DialogHelper.makeMovable(dialog, modalHeader);
+        DialogHelper.makeResizable(dialog, modal);
 
         buildContent();
     }
 
     public void setOnCheckChanged(Runnable cb) { this.onCheckChanged = cb; }
 
-    public void show() { dialog.showAndWait(); }
+    public void show() { dialog.show(); }
+    public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
 
@@ -278,10 +284,4 @@ public class FolderListDialog {
         return btn;
     }
 
-    private void applyTheme(Scene scene) {
-        try {
-            var css = getClass().getResource("/css/rq-theme.css");
-            if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        } catch (Exception ignored) {}
-    }
 }

@@ -5,6 +5,7 @@ module com.rqtracker {
     requires java.logging;
     requires java.desktop;
     requires java.net.http;
+    requires jdk.crypto.ec;
 
     opens com.rqtracker to javafx.fxml;
     opens com.rqtracker.model to com.fasterxml.jackson.databind;

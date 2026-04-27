@@ -47,7 +47,9 @@ public class RQListItem extends HBox {
         bar.getStyleClass().add("rq-item-bar");
         if (entry.percent() >= 100) bar.getStyleClass().add("done");
         bar.setMaxWidth(Double.MAX_VALUE);
-        bar.setPrefHeight(3);
+        bar.setMinHeight(6);
+        bar.setPrefHeight(6);
+        bar.setMaxHeight(6);
 
         // 左側資訊 VBox
         VBox infoBox = new VBox(4, topRow, bar);

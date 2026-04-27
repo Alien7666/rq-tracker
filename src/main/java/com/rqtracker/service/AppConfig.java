@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -61,6 +63,10 @@ public class AppConfig {
     /** 使用者選擇略過的版本號 */
     private String skipVersion = "";
 
+    /** 執行期 SplitPane 分隔位置快取（不寫入磁碟），key = rqId + "_v" + vIdx */
+    @JsonIgnore
+    private transient Map<String, double[]> runtimeSplitPositions = new HashMap<>();
+
     // ── 靜態載入 ──────────────────────────────────────────────────────────────
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -72,6 +78,7 @@ public class AppConfig {
         if (Files.exists(settingsPath)) {
             try {
                 instance = MAPPER.readValue(settingsPath.toFile(), AppConfig.class);
+                instance.migrate();
                 return instance;
             } catch (IOException e) {
                 LOG.warning("無法讀取 settings.json，使用預設值：" + e.getMessage());
@@ -79,6 +86,16 @@ public class AppConfig {
         }
         instance = new AppConfig();
         return instance;
+    }
+
+    /** 自動修正舊版設定中已知的錯誤值。 */
+    private void migrate() {
+        // 常見錯誤：svnRoot 填了 C:\SVN 而非 C:\SVN\新系統開發
+        if ("C:\\SVN".equalsIgnoreCase(svnRoot) || "C:\\SVN\\".equalsIgnoreCase(svnRoot)) {
+            svnRoot = "C:\\SVN\\新系統開發";
+            save();
+            LOG.info("svnRoot 已自動修正為：" + svnRoot);
+        }
     }
 
     public static AppConfig getInstance() {
@@ -146,7 +163,13 @@ public class AppConfig {
     public int getNoteHeight() { return noteHeight; }
     public void setNoteHeight(int h) { this.noteHeight = h; }
 
-    public String getUpdateCheckUrl() { return updateCheckUrl; }
+    private static final String DEFAULT_UPDATE_URL =
+        "https://api.github.com/repos/Alien7666/rq-tracker/releases/latest";
+
+    public String getUpdateCheckUrl() {
+        return (updateCheckUrl == null || updateCheckUrl.isBlank())
+            ? DEFAULT_UPDATE_URL : updateCheckUrl;
+    }
     public void setUpdateCheckUrl(String url) { this.updateCheckUrl = url; }
 
     public String getLastUpdateCheckDate() { return lastUpdateCheckDate != null ? lastUpdateCheckDate : ""; }
@@ -154,6 +177,18 @@ public class AppConfig {
 
     public String getSkipVersion() { return skipVersion != null ? skipVersion : ""; }
     public void setSkipVersion(String ver) { this.skipVersion = ver; }
+
+    @JsonIgnore
+    public double[] getSplitPositions(String key) {
+        if (runtimeSplitPositions == null) runtimeSplitPositions = new HashMap<>();
+        return runtimeSplitPositions.get(key);
+    }
+
+    @JsonIgnore
+    public void setSplitPositions(String key, double[] positions) {
+        if (runtimeSplitPositions == null) runtimeSplitPositions = new HashMap<>();
+        runtimeSplitPositions.put(key, positions);
+    }
 
     /** 是否已設定備份資料夾 */
     public boolean hasBackupDir() {

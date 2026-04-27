@@ -7,7 +7,7 @@
 
     <groupId>com.rqtracker</groupId>
     <artifactId>rq-tracker</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.6</version>
     <packaging>jar</packaging>
     <name>RQ Tracker</name>
     <description>RQ 需求單開發進度追蹤工具</description>
@@ -72,6 +72,12 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>${main.class}</mainClass>
+                    <jlinkImageName>image</jlinkImageName>
+                    <addModules>
+                        <addModule>jdk.crypto.ec</addModule>
+                        <addModule>jdk.crypto.cryptoki</addModule>
+                        <addModule>jdk.crypto.mscapi</addModule>
+                    </addModules>
                     <options>
                         <option>-Dfile.encoding=UTF-8</option>
                         <option>-Duser.language=zh</option>
@@ -124,16 +130,19 @@
                                 <argument>--name</argument>
                                 <argument>RQTracker</argument>
                                 <argument>--app-version</argument>
-                                <argument>1.0.0</argument>
+                                <argument>${project.version}</argument>
                                 <argument>--vendor</argument>
                                 <argument>RQTracker</argument>
                                 <argument>--description</argument>
-                                <argument>RQ 需求單開發進度追蹤工具</argument>
+                                <argument>RQ Change Request Tracker</argument>
 
                                 <!-- Windows 安裝選項 -->
                                 <argument>--win-dir-chooser</argument>
                                 <argument>--win-menu</argument>
                                 <argument>--win-shortcut</argument>
+                                <!-- 固定 UpgradeCode 讓新版 MSI 自動升級舊版，無需手動解除安裝 -->
+                                <argument>--win-upgrade-uuid</argument>
+                                <argument>A7C4F82E-3B15-4D9A-8E67-1F2C3D4E5678</argument>
 
                                 <!-- 圖示（需先放入 packaging/windows/rq-tracker.ico） -->
                                 <argument>--icon</argument>
