@@ -44,6 +44,7 @@ public class DataStore {
     private List<String> index = new ArrayList<>();
     private final Map<String, RQData> rqs = new LinkedHashMap<>();
     private List<RQData> history = new ArrayList<>();
+    private volatile CompletableFuture<Void> pendingSave = CompletableFuture.completedFuture(null);
 
     // ── 初始化 ────────────────────────────────────────────────────────────────
 
@@ -79,9 +80,9 @@ public class DataStore {
 
     // ── 非同步儲存 ────────────────────────────────────────────────────────────
 
-    public CompletableFuture<Void> saveAsync() {
+    public synchronized CompletableFuture<Void> saveAsync() {
         AppData snapshot = buildSnapshot();
-        return CompletableFuture.runAsync(() -> {
+        pendingSave = CompletableFuture.runAsync(() -> {
             try {
                 Files.createDirectories(dataPath.getParent());
                 MAPPER.writeValue(dataPath.toFile(), snapshot);
@@ -89,6 +90,7 @@ public class DataStore {
                 LOG.warning("儲存 data.json 失敗：" + e.getMessage());
             }
         }, ioExecutor);
+        return pendingSave;
     }
 
     private AppData buildSnapshot() {
@@ -220,5 +222,17 @@ public class DataStore {
     /** 關閉 IO 執行緒（應用程式結束時呼叫） */
     public void shutdown() {
         ioExecutor.shutdown();
+        try {
+            pendingSave.get(5, TimeUnit.SECONDS);
+            if (!ioExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                ioExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            ioExecutor.shutdownNow();
+        } catch (ExecutionException | TimeoutException e) {
+            LOG.warning("等待 data.json 儲存完成失敗：" + e.getMessage());
+            ioExecutor.shutdownNow();
+        }
     }
 }
