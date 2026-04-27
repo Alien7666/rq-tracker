@@ -99,21 +99,16 @@ public final class FileListGenerator {
     }
 
     /**
-     * 同時將 list.txt 寫入 D:\Systex\{rqId}\ 下的 zip 目錄。
+     * 將 list.txt 寫入 D:\Systex\{rqId}\ 根目錄（與任務定義路徑一致）。
      *
-     * @return 寫入成功的路徑；若無法寫入則回傳 null
+     * @return 寫入成功的路徑；若目錄不存在或寫入失敗則回傳 null
      */
     public static Path writeListFile(RQData rq, String downloadsRoot, String content) {
-        String rqId   = rq.getId();
-        String rqRoot = ensureSlash(downloadsRoot) + PathUtils.winSafeName(rqId) + "\\";
-        Path rqRootPath = Paths.get(rqRoot);
+        String rqId = rq.getId();
+        Path rqRootPath = Paths.get(ensureSlash(downloadsRoot) + PathUtils.winSafeName(rqId));
         if (!Files.isDirectory(rqRootPath)) return null;
 
-        String rqNum   = PathUtils.rqNumber(rqId);
-        String zipDir  = findZipDir(rqRootPath, rqNum);
-        if (zipDir == null) return null;
-
-        Path listFile = rqRootPath.resolve(zipDir).resolve("list.txt");
+        Path listFile = rqRootPath.resolve("list.txt");
         try {
             Files.writeString(listFile, content, java.nio.charset.StandardCharsets.UTF_8);
             return listFile;
