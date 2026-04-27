@@ -193,8 +193,10 @@ public class UpdateDialog {
                 Label msg = new Label("下載完成！");
                 msg.getStyleClass().add("form-label");
                 Label hint = new Label(
-                    "點「立即安裝」後應用程式將關閉，在背景靜默安裝，完成後自動重新啟動。\n" +
-                    "（安裝過程可能出現一次 Windows 授權確認對話框）");
+                    "點「立即安裝」後應用程式將關閉。\n" +
+                    "數秒內 Windows 會彈出授權確認視窗（UAC），請按「是」。\n" +
+                    "授權後靜默安裝，完成後自動重新啟動。\n" +
+                    "若安裝失敗可查看 %TEMP%\\rq-update-log.txt 診斷。");
                 hint.getStyleClass().add("form-hint");
                 hint.setWrapText(true);
 

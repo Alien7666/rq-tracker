@@ -116,11 +116,20 @@ public final class UpdateService {
 
     /**
      * 靜默安裝並在完成後自動重啟。
-     * 流程：寫入 PowerShell helper → 啟動 helper → 關閉 JVM。
-     * Helper 會等待 app 完全關閉後執行 msiexec /quiet，完成後重新啟動 exe。
+     *
+     * 架構說明（兩個暫存檔）：
+     *   rq-update-worker.ps1  — 以管理員身份執行，做實際 msiexec 安裝 + 重啟
+     *   rq-update-launcher.vbs — 由 wscript.exe /B 執行，完全無視窗，
+     *                            透過 Shell.Application.ShellExecute "runas" 觸發 UAC
+     *
+     * 關鍵原理：
+     *   PowerShell -Verb RunAs 在 Hidden/NonInteractive 程序中可能無法觸發 UAC。
+     *   Shell.Application.ShellExecute("powershell","...","","runas",0) 是 Windows
+     *   官方建議的背景程序 UAC 觸發方式，無論父程序視窗狀態如何都能正確顯示 UAC。
      */
     public static void launchInstaller(Path msi) throws IOException {
         String msiPath = msi.toAbsolutePath().toString();
+        String tmpDir  = System.getProperty("java.io.tmpdir");
 
         // 取得目前執行檔路徑（jpackage 安裝後為 RQTracker.exe）
         String exePath = ProcessHandle.current().info().command().orElse("");
@@ -128,36 +137,49 @@ public final class UpdateService {
             && exePath.toLowerCase().endsWith(".exe")
             && !exePath.toLowerCase().contains("java");
 
-        // 建構 PowerShell helper script
-        // 說明：使用兩段式提權：外層 PowerShell（Hidden）→ 內層 Start-Process -Verb RunAs
-        // -Verb RunAs 會觸發 UAC（即使父程序是隱藏視窗），使用者按允許後靜默安裝
-        String safeMsi = msiPath.replace("'", "''");
-        String safeExe = canRelaunch ? exePath.replace("'", "''") : "";
-
-        StringBuilder ps = new StringBuilder();
-        ps.append("Start-Sleep -Seconds 4\n");
-        ps.append("$msi = '").append(safeMsi).append("'\n");
-        // -Verb RunAs 觸發 UAC；-Wait 等待安裝完成；-PassThru 取得結束碼
-        ps.append("$proc = Start-Process msiexec -ArgumentList @('/i', $msi, '/quiet', '/norestart') -Verb RunAs -Wait -PassThru\n");
+        // ── Step 1：寫 PowerShell worker（以提權後的管理員身份執行） ─────────────
+        StringBuilder psWorker = new StringBuilder();
+        // 寫安裝日誌到 %TEMP%\rq-update-log.txt 方便診斷
+        psWorker.append("$log = \"$env:TEMP\\rq-update-log.txt\"\r\n");
+        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [START] worker running as admin\" | Out-File $log -Encoding UTF8\r\n");
+        psWorker.append("$msi = '").append(msiPath.replace("'", "''")).append("'\r\n");
+        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] msi=$msi\" | Add-Content $log\r\n");
+        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] exists=$(Test-Path $msi)\" | Add-Content $log\r\n");
+        // 以管理員身份直接呼叫 msiexec（不需 -Verb RunAs，已是提權程序）
+        psWorker.append("$proc = Start-Process msiexec -ArgumentList @('/i', $msi, '/quiet', '/norestart') -Wait -PassThru\r\n");
+        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [INFO] exitCode=$($proc.ExitCode)\" | Add-Content $log\r\n");
         if (canRelaunch) {
-            ps.append("if ($proc -ne $null -and $proc.ExitCode -eq 0) {\n");
-            ps.append("    Start-Sleep -Seconds 2\n");
-            ps.append("    Start-Process '").append(safeExe).append("'\n");
-            ps.append("}\n");
+            psWorker.append("if ($proc -ne $null -and $proc.ExitCode -eq 0) {\r\n");
+            psWorker.append("    Start-Sleep -Seconds 3\r\n");
+            psWorker.append("    Start-Process '").append(exePath.replace("'", "''")).append("'\r\n");
+            psWorker.append("    \"$(Get-Date -f 'HH:mm:ss') [INFO] relaunched\" | Add-Content $log\r\n");
+            psWorker.append("}\r\n");
         }
+        psWorker.append("\"$(Get-Date -f 'HH:mm:ss') [END] done\" | Add-Content $log\r\n");
 
-        Path psFile = java.nio.file.Path.of(
-            System.getProperty("java.io.tmpdir"), "rq-update-helper.ps1");
-        java.nio.file.Files.writeString(psFile, ps.toString(),
+        Path psFile = java.nio.file.Path.of(tmpDir, "rq-update-worker.ps1");
+        java.nio.file.Files.writeString(psFile, psWorker.toString(),
             java.nio.charset.StandardCharsets.UTF_8);
 
-        new ProcessBuilder(
-            "powershell.exe",
-            "-ExecutionPolicy", "Bypass",
-            "-NonInteractive",
-            "-WindowStyle", "Hidden",
-            "-File", psFile.toString()
-        ).start();
+        // ── Step 2：寫 VBScript launcher（Shell.Application.ShellExecute = Windows 官方 UAC 觸發） ──
+        // VBScript 字串內 "" 代表一個 "，故路徑要包在 ""PATH"" 之中
+        // sh.ShellExecute "powershell.exe", "-... -File ""PATH""", "", "runas", 0
+        String psAbsPath = psFile.toAbsolutePath().toString();
+        String vbsContent =
+            "WScript.Sleep 4000\r\n" +
+            "Set sh = CreateObject(\"Shell.Application\")\r\n" +
+            "sh.ShellExecute \"powershell.exe\", " +
+            "\"-ExecutionPolicy Bypass -WindowStyle Hidden -File \"\"" +
+            psAbsPath +
+            "\"\"\", \"\", \"runas\", 0\r\n";
+
+        Path vbsFile = java.nio.file.Path.of(tmpDir, "rq-update-launcher.vbs");
+        java.nio.file.Files.writeString(vbsFile, vbsContent,
+            java.nio.charset.StandardCharsets.UTF_8);
+
+        // ── Step 3：用 wscript.exe /B 靜默啟動 VBS（/B 隱藏所有錯誤對話框） ─────
+        new ProcessBuilder("wscript.exe", "/B",
+            vbsFile.toAbsolutePath().toString()).start();
 
         javafx.application.Platform.exit();
         System.exit(0);
