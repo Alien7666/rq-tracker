@@ -9,13 +9,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -24,25 +23,16 @@ public final class UpdateService {
 
     private static final Logger LOG = Logger.getLogger(UpdateService.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final String CMD_SCRIPT_NAME = "rq-update-runner.cmd";
     private static final String UPDATE_LOG_NAME = "rq-update-log.txt";
-    private static final String UPDATE_STARTED_FLAG_NAME = "rq-update-started.flag";
     private static final String UPDATE_MSI_LOG_NAME = "rq-update-msi.log";
 
     public record UpdateInfo(String version, String releaseNotes, String downloadUrl, String publishedAt) {}
 
     private UpdateService() {}
 
-    public static Path getUpdateStartedFlagPath() {
-        return Path.of(System.getProperty("java.io.tmpdir"), UPDATE_STARTED_FLAG_NAME);
-    }
-
     // ── 版本檢查 ──────────────────────────────────────────────────────────────
 
-    /**
-     * 向 url 發出 GET 請求，若伺服器版本比 currentVersion 新則回傳 UpdateInfo。
-     * 支援 GitHub Releases API 與自訂 JSON 兩種格式。
-     * 網路或解析錯誤時拋出例外，由呼叫端決定如何呈現。
-     */
     public static Optional<UpdateInfo> checkForUpdate(String url, String currentVersion)
             throws IOException, InterruptedException {
         if (url == null || url.isBlank()) return Optional.empty();
@@ -74,11 +64,6 @@ public final class UpdateService {
 
     // ── 下載 MSI ──────────────────────────────────────────────────────────────
 
-    /**
-     * 下載 MSI 到 %TEMP%\rq-tracker-update.msi。
-     * onProgress 收到 0.0–1.0 的進度值；cancelled 設為 true 可中止。
-     * @return 下載完成的 MSI 路徑，中止或失敗時回傳 null
-     */
     public static Path download(UpdateInfo info, Consumer<Double> onProgress,
                                 AtomicBoolean cancelled) throws IOException, InterruptedException {
         Path dest = Path.of(System.getProperty("java.io.tmpdir"), "rq-tracker-update.msi");
@@ -123,9 +108,11 @@ public final class UpdateService {
         return dest;
     }
 
+    // ── 安裝啟動 ──────────────────────────────────────────────────────────────
+
     /**
-     * 啟動暫存目錄中的提權 updater 進行靜默安裝。
-     * 呼叫端應等待 getUpdateStartedFlagPath() 出現後再關閉目前 App。
+     * 啟動 detached cmd 接力腳本：等主程式退出 → msiexec 提權安裝 → 重啟新版。
+     * 呼叫端應在短暫倒數後 {@link #exitForUpdate()} 結束 JVM。
      */
     public static void launchInstaller(Path msi) throws IOException {
         if (msi == null) {
@@ -136,54 +123,34 @@ public final class UpdateService {
             throw new IOException("找不到有效的 MSI 安裝檔：" + msiAbs);
         }
 
-        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
-        Path logFile = tmpDir.resolve(UPDATE_LOG_NAME);
-        Path flagFile = getUpdateStartedFlagPath();
-        Path msiLogFile = tmpDir.resolve(UPDATE_MSI_LOG_NAME);
-        Files.deleteIfExists(flagFile);
-        Files.deleteIfExists(msiLogFile);
-
-        long appPid = ProcessHandle.current().pid();
         String exePath = ProcessHandle.current().info().command().orElse("");
         boolean canRelaunch = !exePath.isBlank()
             && exePath.toLowerCase().endsWith(".exe")
             && !exePath.toLowerCase().contains("java");
         if (!canRelaunch) {
-            writePrepareLog(logFile, msiAbs, appPid, exePath, "INVALID_EXE");
             throw new IOException("目前不是以已安裝的 RQTracker.exe 執行，無法自動更新。");
         }
 
-        writePrepareLog(logFile, msiAbs, appPid, exePath, "PREPARE");
-        Path psFile = tmpDir.resolve("rq-update-runner.ps1");
-        Files.writeString(psFile, buildUpdaterScript(msiAbs, flagFile, logFile, msiLogFile, Path.of(exePath)),
-            StandardCharsets.UTF_8);
-        appendLog(logFile, "UPDATER script=" + psFile);
+        long pid = ProcessHandle.current().pid();
+        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
+        Path script = tmpDir.resolve(CMD_SCRIPT_NAME);
+        Path msiLog = tmpDir.resolve(UPDATE_MSI_LOG_NAME);
+        Path runnerLog = tmpDir.resolve(UPDATE_LOG_NAME);
 
-        Process process = new ProcessBuilder(
-            "powershell.exe",
-            "-NoProfile",
-            "-WindowStyle", "Hidden",
-            "-ExecutionPolicy", "Bypass",
-            "-Command",
-            buildElevatedUpdaterCommand(psFile)
+        String content = buildCmdScript(msiLog, runnerLog);
+        // cmd 預設以 OEM/ANSI codepage 解析 .cmd 內容；改在腳本內 chcp 65001 並以平台 charset 寫入即可。
+        Files.writeString(script, content, Charset.defaultCharset());
+
+        // cmd /c start "title" /min cmd /c "script" "msi" "pid" "exe"
+        // 第一層 cmd /c start 會立即返回，第二層 cmd 視窗最小化但可見。
+        new ProcessBuilder(
+            "cmd.exe", "/c", "start", "RQ Tracker 更新", "/min",
+            "cmd.exe", "/c",
+            quote(script.toString()),
+            quote(msiAbs.toString()),
+            String.valueOf(pid),
+            quote(exePath)
         ).start();
-
-        try {
-            if (process.waitFor(60, TimeUnit.SECONDS)) {
-                int exit = process.exitValue();
-                appendLog(logFile, "LAUNCHER exitCode=" + exit);
-                if (exit != 0) {
-                    throw new IOException("提權安裝啟動器失敗，exitCode=" + exit);
-                }
-            } else {
-                appendLog(logFile, "LAUNCHER still waiting for UAC response");
-                process.destroyForcibly();
-                throw new IOException("未在 60 秒內完成 Windows 授權確認，請重新點選立即安裝。");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("提權安裝啟動器被中斷", e);
-        }
     }
 
     public static void exitForUpdate() {
@@ -191,70 +158,60 @@ public final class UpdateService {
         System.exit(0);
     }
 
-    private static String buildElevatedUpdaterCommand(Path psFile) {
-        String[] args = { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-            "-File", psFile.toAbsolutePath().toString() };
-        StringBuilder ps = new StringBuilder();
-        ps.append("Start-Process -FilePath 'powershell.exe' -ArgumentList @(");
-        for (int i = 0; i < args.length; i++) {
-            if (i > 0) ps.append(",");
-            ps.append("'").append(psEscape(args[i])).append("'");
-        }
-        ps.append(") -Verb RunAs -WindowStyle Hidden");
-        return ps.toString();
+    /**
+     * 產生 cmd 接力腳本內容。msiLog/runnerLog 路徑會直接內嵌；MSI、PID、EXE 透過 %~1 %~2 %~3 傳入。
+     * 不在 Java 端拼接路徑就能避開引號 escape 的 corner case。
+     */
+    static String buildCmdScript(Path msiLog, Path runnerLog) {
+        String log = msiLog.toString();
+        String rlog = runnerLog.toString();
+        StringBuilder sb = new StringBuilder();
+        sb.append("@echo off\r\n");
+        sb.append("chcp 65001 > nul\r\n");
+        sb.append("set \"MSI=%~1\"\r\n");
+        sb.append("set \"PID=%~2\"\r\n");
+        sb.append("set \"EXE=%~3\"\r\n");
+        sb.append("set \"LOG=").append(log).append("\"\r\n");
+        sb.append("set \"RLOG=").append(rlog).append("\"\r\n");
+        sb.append("> \"%RLOG%\" echo [%DATE% %TIME%] runner started PID=%PID% MSI=%MSI%\r\n");
+        sb.append("\r\n");
+        sb.append(":wait_exit\r\n");
+        sb.append("tasklist /FI \"PID eq %PID%\" 2>nul | findstr /C:\"%PID%\" > nul\r\n");
+        sb.append("if not errorlevel 1 (\r\n");
+        sb.append("    timeout /t 1 /nobreak > nul\r\n");
+        sb.append("    goto wait_exit\r\n");
+        sb.append(")\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] main process exited, launching msiexec via UAC\r\n");
+        sb.append("\r\n");
+        // PowerShell 一行命令：透過 ShellExecute -Verb RunAs 觸發 UAC，等候 msiexec 結束並回傳 exit code
+        sb.append("powershell -NoProfile -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; try { $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', '%MSI%', '/qb!', '/norestart', '/L*v', '%LOG%') -Verb RunAs -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }\"\r\n");
+        sb.append("set \"RC=%errorlevel%\"\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] msiexec exit=%RC%\r\n");
+        sb.append("\r\n");
+        sb.append("if \"%RC%\"==\"0\" goto ok\r\n");
+        sb.append("if \"%RC%\"==\"3010\" goto ok\r\n");
+        sb.append("if \"%RC%\"==\"1602\" goto cancel\r\n");
+        sb.append("if \"%RC%\"==\"1223\" goto cancel\r\n");
+        sb.append("\r\n");
+        sb.append(":fail\r\n");
+        sb.append("mshta \"javascript:var sh=new ActiveXObject('WScript.Shell');sh.Popup('RQ Tracker 更新失敗 (代碼 %RC%)\\n\\n詳細記錄：%LOG%',0,'更新失敗',16);close()\"\r\n");
+        sb.append("start \"\" \"%EXE%\"\r\n");
+        sb.append("exit /b %RC%\r\n");
+        sb.append("\r\n");
+        sb.append(":cancel\r\n");
+        sb.append("mshta \"javascript:var sh=new ActiveXObject('WScript.Shell');sh.Popup('您取消了 Windows 授權，更新未進行。\\n舊版 RQ Tracker 將重新啟動。',0,'更新取消',48);close()\"\r\n");
+        sb.append("start \"\" \"%EXE%\"\r\n");
+        sb.append("exit /b 0\r\n");
+        sb.append("\r\n");
+        sb.append(":ok\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] install OK, relaunching %EXE%\r\n");
+        sb.append("start \"\" \"%EXE%\"\r\n");
+        sb.append("exit /b 0\r\n");
+        return sb.toString();
     }
 
-    private static String buildUpdaterScript(Path msi, Path flagFile, Path logFile,
-                                             Path msiLogFile, Path appExe) {
-        StringBuilder ps = new StringBuilder();
-        ps.append("$ErrorActionPreference = 'Stop'\r\n");
-        ps.append("$log = '").append(psEscape(logFile.toString())).append("'\r\n");
-        ps.append("function Log($m) { \"$(Get-Date -Format o) $m\" | Add-Content $log -Encoding UTF8 }\r\n");
-        ps.append("try {\r\n");
-        ps.append("    Log 'STARTED updater'\r\n");
-        ps.append("    Set-Content -Path '").append(psEscape(flagFile.toString())).append("' -Value \"started $(Get-Date -Format o)\" -Encoding UTF8\r\n");
-        ps.append("    $msi = '").append(psEscape(msi.toString())).append("'\r\n");
-        ps.append("    $msiLog = '").append(psEscape(msiLogFile.toString())).append("'\r\n");
-        ps.append("    $app = '").append(psEscape(appExe.toString())).append("'\r\n");
-        ps.append("    Log \"MSI=$msi\"\r\n");
-        ps.append("    Log \"MSI_EXISTS=$(Test-Path $msi)\"\r\n");
-        ps.append("    Start-Sleep -Seconds 5\r\n");
-        ps.append("    Log \"MSI_START log=$msiLog\"\r\n");
-        ps.append("    $proc = Start-Process \"$env:SystemRoot\\System32\\msiexec.exe\" -ArgumentList @('/i', $msi, '/qn', '/norestart', '/L*v', $msiLog) -Wait -PassThru\r\n");
-        ps.append("    Log \"MSI_EXIT_CODE $($proc.ExitCode)\"\r\n");
-        ps.append("    if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {\r\n");
-        ps.append("        Start-Sleep -Seconds 2\r\n");
-        ps.append("        if (Test-Path $app) { Start-Process $app; Log 'RELAUNCHED' }\r\n");
-        ps.append("    }\r\n");
-        ps.append("    Log 'END done'\r\n");
-        ps.append("} catch {\r\n");
-        ps.append("    Log \"ERROR $($_.Exception.Message)\"\r\n");
-        ps.append("    exit 1\r\n");
-        ps.append("}\r\n");
-        return ps.toString();
-    }
-
-    private static void writePrepareLog(Path logFile, Path msi, long appPid,
-                                        String exePath, String status) throws IOException {
-        String content = ""
-            + java.time.LocalDateTime.now() + " [" + status + "] launcher preparing\r\n"
-            + "msi=" + msi + "\r\n"
-            + "msiExists=" + Files.exists(msi) + "\r\n"
-            + "msiSize=" + (Files.exists(msi) ? Files.size(msi) : -1) + "\r\n"
-            + "appPid=" + appPid + "\r\n"
-            + "exePath=" + exePath + "\r\n";
-        Files.writeString(logFile, content, StandardCharsets.UTF_8);
-    }
-
-    private static void appendLog(Path logFile, String message) throws IOException {
-        String line = java.time.LocalDateTime.now() + " " + message + "\r\n";
-        Files.writeString(logFile, line, StandardCharsets.UTF_8,
-            java.nio.file.StandardOpenOption.CREATE,
-            java.nio.file.StandardOpenOption.APPEND);
-    }
-
-    private static String psEscape(String value) {
-        return value.replace("'", "''");
+    private static String quote(String s) {
+        return "\"" + s + "\"";
     }
 
     // ── 解析 ──────────────────────────────────────────────────────────────────
@@ -264,7 +221,8 @@ public final class UpdateService {
             JsonNode root = MAPPER.readTree(json);
             String tag = root.path("tag_name").asText("").replaceFirst("^v", "");
             String notes = root.path("body").asText("");
-            String pub = root.path("published_at").asText("").substring(0, Math.min(10, root.path("published_at").asText("").length()));
+            String pubRaw = root.path("published_at").asText("");
+            String pub = pubRaw.substring(0, Math.min(10, pubRaw.length()));
             JsonNode assets = root.path("assets");
             String dlUrl = "";
             if (assets.isArray()) {

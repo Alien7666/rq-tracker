@@ -61,6 +61,7 @@ public class RQListItem extends HBox {
         delBtn = new Button("✕");
         delBtn.getStyleClass().add("rq-item-del");
         delBtn.setOpacity(0.0);
+        Tooltip.install(delBtn, new Tooltip("刪除 " + entry.rqId()));
         delBtn.setOnAction(ev -> {
             ev.consume();
             if (onDelete != null) onDelete.accept(entry.rqId());

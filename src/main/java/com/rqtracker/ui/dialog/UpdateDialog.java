@@ -5,8 +5,11 @@ import com.rqtracker.service.AppConfig;
 import com.rqtracker.service.UpdateService;
 import com.rqtracker.util.DialogHelper;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.util.Duration;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -17,7 +20,6 @@ import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.nio.file.Path;
-import java.nio.file.Files;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -196,10 +198,10 @@ public class UpdateDialog {
                 Label msg = new Label("下載完成！");
                 msg.getStyleClass().add("form-label");
                 Label hint = new Label(
-                    "點「立即安裝」後會先顯示 Windows 授權確認視窗（UAC）。\n" +
-                    "請按「是」啟動安裝程序，確認啟動後應用程式才會關閉。\n" +
-                    "安裝完成後會自動重新啟動。\n" +
-                    "若安裝失敗可查看 %TEMP%\\rq-update-log.txt 診斷。");
+                    "點擊「立即安裝」後 3 秒會關閉 RQ Tracker。\n" +
+                    "接著 Windows 會跳出授權確認視窗（UAC），請點「是」。\n" +
+                    "新版安裝約 5–15 秒，完成後會自動啟動新版。\n" +
+                    "若安裝失敗，畫面會跳出錯誤訊息，且舊版會自動重啟。");
                 hint.getStyleClass().add("form-hint");
                 hint.setWrapText(true);
 
@@ -291,49 +293,43 @@ public class UpdateDialog {
     }
 
     private void startInstall() {
+        try {
+            UpdateService.launchInstaller(downloadedMsi);
+        } catch (Exception ex) {
+            showError("無法啟動安裝程式：" + ex.getMessage());
+            return;
+        }
+
         body.getChildren().clear();
         footer.getChildren().clear();
 
         Label ico = new Label("⏳");
         ico.getStyleClass().add("modal-title");
-        Label msg = new Label("正在等待 Windows 授權視窗…");
+        Label msg = new Label("正在準備更新…");
         msg.getStyleClass().add("form-label");
+        Label countdown = new Label();
+        countdown.getStyleClass().add("modal-title");
         Label hint = new Label(
-            "請在 UAC 視窗按「是」。\n" +
-            "偵測到安裝程序已啟動後，RQ Tracker 會自動關閉並等待新版安裝完成。");
+            "RQ Tracker 即將關閉。\n" +
+            "請於接下來的 Windows 授權視窗（UAC）點「是」以開始安裝。");
         hint.getStyleClass().add("form-hint");
         hint.setWrapText(true);
-        body.getChildren().addAll(ico, msg, hint);
-        dialog.setMinHeight(240);
+        body.getChildren().addAll(ico, msg, countdown, hint);
+        dialog.setMinHeight(260);
 
-        Thread t = new Thread(() -> {
-            try {
-                Path flag = UpdateService.getUpdateStartedFlagPath();
-                UpdateService.launchInstaller(downloadedMsi);
-                boolean started = waitForInstallerFlag(flag);
-                Platform.runLater(() -> {
-                    if (started) {
-                        UpdateService.exitForUpdate();
-                    } else {
-                        showError(
-                            "未偵測到安裝程序啟動。\n" +
-                            "請確認是否取消 UAC、被系統阻擋，或查看 %TEMP%\\rq-update-log.txt。");
-                    }
-                });
-            } catch (Exception ex) {
-                Platform.runLater(() -> showError("無法啟動安裝程式：" + ex.getMessage()));
+        final int[] remaining = { 3 };
+        countdown.setText(remaining[0] + " 秒後自動關閉…");
+        Timeline timer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            remaining[0]--;
+            if (remaining[0] > 0) {
+                countdown.setText(remaining[0] + " 秒後自動關閉…");
+            } else {
+                countdown.setText("關閉中…");
+                UpdateService.exitForUpdate();
             }
-        }, "UpdateDialog-Install");
-        t.setDaemon(true);
-        t.start();
-    }
-
-    private boolean waitForInstallerFlag(Path flag) throws InterruptedException {
-        for (int i = 0; i < 300; i++) {
-            if (Files.exists(flag)) return true;
-            Thread.sleep(100);
-        }
-        return false;
+        }));
+        timer.setCycleCount(3);
+        timer.play();
     }
 
     private void showError(String msg) {
