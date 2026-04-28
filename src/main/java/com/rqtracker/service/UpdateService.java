@@ -137,19 +137,23 @@ public final class UpdateService {
         Path msiLog = tmpDir.resolve(UPDATE_MSI_LOG_NAME);
         Path runnerLog = tmpDir.resolve(UPDATE_LOG_NAME);
 
-        String content = buildCmdScript(msiLog, runnerLog);
-        // cmd 預設以 OEM/ANSI codepage 解析 .cmd 內容；改在腳本內 chcp 65001 並以平台 charset 寫入即可。
+        // 把 PID/MSI/EXE 直接寫死在腳本內，避免 cmd /c 多層引號傳遞造成的 strip-quote bug。
+        String content = buildCmdScript(msiAbs, pid, exePath, msiLog, runnerLog);
         Files.writeString(script, content, Charset.defaultCharset());
 
-        // cmd /c start "title" /min cmd /c "script" "msi" "pid" "exe"
-        // 第一層 cmd /c start 會立即返回，第二層 cmd 視窗最小化但可見。
+        // 在 Java 端先寫一行起始訊息到 runnerLog；若之後 log 沒有 "runner started"，代表 cmd 根本沒被 spawn。
+        Files.writeString(runnerLog,
+            "[" + java.time.LocalDateTime.now() + "] java spawning runner: " + script
+                + System.lineSeparator(),
+            Charset.defaultCharset(),
+            java.nio.file.StandardOpenOption.CREATE,
+            java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+
+        // cmd /c start "title" /min "script.cmd"
+        // 只有一個帶引號參數，沒有 cmd /c 串接的 quote-strip 問題。
         new ProcessBuilder(
             "cmd.exe", "/c", "start", "RQ Tracker 更新", "/min",
-            "cmd.exe", "/c",
-            quote(script.toString()),
-            quote(msiAbs.toString()),
-            String.valueOf(pid),
-            quote(exePath)
+            script.toString()
         ).start();
     }
 
@@ -162,18 +166,16 @@ public final class UpdateService {
      * 產生 cmd 接力腳本內容。msiLog/runnerLog 路徑會直接內嵌；MSI、PID、EXE 透過 %~1 %~2 %~3 傳入。
      * 不在 Java 端拼接路徑就能避開引號 escape 的 corner case。
      */
-    static String buildCmdScript(Path msiLog, Path runnerLog) {
-        String log = msiLog.toString();
-        String rlog = runnerLog.toString();
+    static String buildCmdScript(Path msi, long pid, String exePath, Path msiLog, Path runnerLog) {
         StringBuilder sb = new StringBuilder();
         sb.append("@echo off\r\n");
         sb.append("chcp 65001 > nul\r\n");
-        sb.append("set \"MSI=%~1\"\r\n");
-        sb.append("set \"PID=%~2\"\r\n");
-        sb.append("set \"EXE=%~3\"\r\n");
-        sb.append("set \"LOG=").append(log).append("\"\r\n");
-        sb.append("set \"RLOG=").append(rlog).append("\"\r\n");
-        sb.append("> \"%RLOG%\" echo [%DATE% %TIME%] runner started PID=%PID% MSI=%MSI%\r\n");
+        sb.append("set \"MSI=").append(msi.toString()).append("\"\r\n");
+        sb.append("set \"PID=").append(pid).append("\"\r\n");
+        sb.append("set \"EXE=").append(exePath).append("\"\r\n");
+        sb.append("set \"LOG=").append(msiLog.toString()).append("\"\r\n");
+        sb.append("set \"RLOG=").append(runnerLog.toString()).append("\"\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] runner started PID=%PID% MSI=%MSI%\r\n");
         sb.append("\r\n");
         sb.append(":wait_exit\r\n");
         sb.append("tasklist /FI \"PID eq %PID%\" 2>nul | findstr /C:\"%PID%\" > nul\r\n");

@@ -5,6 +5,16 @@ REM MSI packaging requires WiX Toolset 3.x.
 
 setlocal
 
+for /f "tokens=3 delims=<>" %%v in ('findstr /r /c:"^[ ]*<version>[^<]*</version>" pom.xml') do (
+    set "APP_VERSION=%%v"
+    goto version_found
+)
+:version_found
+if "%APP_VERSION%"=="" (
+    echo Unable to read project version from pom.xml
+    exit /b 1
+)
+
 REM Auto-detect Scoop JDK 21.
 if exist "%USERPROFILE%\scoop\apps\openjdk21\current\bin\java.exe" set "JAVA_HOME=%USERPROFILE%\scoop\apps\openjdk21\current"
 
@@ -26,8 +36,8 @@ if errorlevel 1 ( echo jpackage failed & exit /b 1 )
 echo.
 echo Package complete. Output directory: target\installer\
 echo.
-if exist "target\installer\RQTracker-1.1.16.msi" (
-    echo Installer: target\installer\RQTracker-1.1.16.msi
+if exist "target\installer\RQTracker-%APP_VERSION%.msi" (
+    echo Installer: target\installer\RQTracker-%APP_VERSION%.msi
 ) else if exist "target\installer\RQTracker\RQTracker.exe" (
     echo Executable: target\installer\RQTracker\RQTracker.exe
 )
