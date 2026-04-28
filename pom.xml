@@ -7,7 +7,7 @@
 
     <groupId>com.rqtracker</groupId>
     <artifactId>rq-tracker</artifactId>
-    <version>1.1.20</version>
+    <version>1.1.22</version>
     <packaging>jar</packaging>
     <name>RQ Tracker</name>
     <description>RQ 需求單開發進度追蹤工具</description>

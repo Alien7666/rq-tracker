@@ -213,20 +213,24 @@ public class MainController {
 
         rqFolderBtn = new Button("📂 資料夾清單");
         rqFolderBtn.getStyleClass().addAll("btn-ghost", "btn-sm");
+        rqFolderBtn.setTooltip(new Tooltip("查看目前 RQ 的資料夾與檔案狀態"));
         rqFolderBtn.setOnAction(e -> openFolderList());
 
         rqEditVerBtn = new Button("✏ 編輯版本");
         rqEditVerBtn.getStyleClass().addAll("btn-ghost", "btn-sm");
+        rqEditVerBtn.setTooltip(new Tooltip("調整此 RQ 的版本清單"));
         rqEditVerBtn.setOnAction(e -> { if (activeRqId != null) openEditVersions(activeRqId); });
 
         rqArchiveBtn = new Button("▣ 歸檔");
         rqArchiveBtn.getStyleClass().addAll("btn-archive", "btn-sm");
+        rqArchiveBtn.setTooltip(new Tooltip("將已完成的 RQ 移到歸檔"));
         rqArchiveBtn.setVisible(false);
         rqArchiveBtn.setManaged(false);
         rqArchiveBtn.setOnAction(e -> { if (activeRqId != null) archiveRQ(activeRqId); });
 
         rqScanBtn = new Button("⟳ 掃描");
         rqScanBtn.getStyleClass().addAll("btn-ghost", "btn-sm");
+        rqScanBtn.setTooltip(new Tooltip("立即重新掃描此 RQ 的檔案狀態"));
         rqScanBtn.setOnAction(e -> triggerManualScan());
 
         HBox header = new HBox(12, titleBox, rqHeaderBar, rqHeaderPct,
