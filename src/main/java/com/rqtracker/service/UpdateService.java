@@ -167,23 +167,29 @@ public final class UpdateService {
      * 不在 Java 端拼接路徑就能避開引號 escape 的 corner case。
      */
     static String buildCmdScript(Path msi, long pid, String exePath, Path msiLog, Path runnerLog) {
+        String exeName = Path.of(exePath).getFileName().toString();
         StringBuilder sb = new StringBuilder();
         sb.append("@echo off\r\n");
         sb.append("chcp 65001 > nul\r\n");
         sb.append("set \"MSI=").append(msi.toString()).append("\"\r\n");
         sb.append("set \"PID=").append(pid).append("\"\r\n");
         sb.append("set \"EXE=").append(exePath).append("\"\r\n");
+        sb.append("set \"EXENAME=").append(exeName).append("\"\r\n");
         sb.append("set \"LOG=").append(msiLog.toString()).append("\"\r\n");
         sb.append("set \"RLOG=").append(runnerLog.toString()).append("\"\r\n");
-        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] runner started PID=%PID% MSI=%MSI%\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] runner started PID=%PID% EXE=%EXENAME% MSI=%MSI%\r\n");
         sb.append("\r\n");
+        // 等候條件：PID + IMAGENAME 同時匹配（避開 PID 回收造成的誤判）；最多等 15 秒
+        sb.append("set /a WAITS=0\r\n");
         sb.append(":wait_exit\r\n");
-        sb.append("tasklist /FI \"PID eq %PID%\" 2>nul | findstr /C:\"%PID%\" > nul\r\n");
-        sb.append("if not errorlevel 1 (\r\n");
-        sb.append("    timeout /t 1 /nobreak > nul\r\n");
-        sb.append("    goto wait_exit\r\n");
-        sb.append(")\r\n");
-        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] main process exited, launching msiexec via UAC\r\n");
+        sb.append("tasklist /FI \"PID eq %PID%\" /FI \"IMAGENAME eq %EXENAME%\" 2>nul | findstr /I /C:\"%EXENAME%\" > nul\r\n");
+        sb.append("if errorlevel 1 goto exited\r\n");
+        sb.append("set /a WAITS+=1\r\n");
+        sb.append("if %WAITS% GEQ 15 goto exited\r\n");
+        sb.append("timeout /t 1 /nobreak > nul\r\n");
+        sb.append("goto wait_exit\r\n");
+        sb.append(":exited\r\n");
+        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] main process exited (waited=%WAITS%s), launching msiexec via UAC\r\n");
         sb.append("\r\n");
         // PowerShell 一行命令：透過 ShellExecute -Verb RunAs 觸發 UAC，等候 msiexec 結束並回傳 exit code
         sb.append("powershell -NoProfile -ExecutionPolicy Bypass -Command \"$ErrorActionPreference='Stop'; try { $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', '%MSI%', '/qb!', '/norestart', '/L*v', '%LOG%') -Verb RunAs -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }\"\r\n");

@@ -51,12 +51,14 @@ public class SidePanel extends VBox {
         // ── 工具列（新增按鈕 + 齒輪） ────────────────────────────────────────
         Button newBtn = new Button("＋  新增 RQ");
         newBtn.getStyleClass().add("btn-side-new");
+        newBtn.setTooltip(new Tooltip("新增一筆 RQ"));
         newBtn.setMaxWidth(Double.MAX_VALUE);
         newBtn.setOnAction(e -> { if (onNewRQ != null) onNewRQ.run(); });
         HBox.setHgrow(newBtn, Priority.ALWAYS);
 
         Button toolBtn = new Button("⚙");
         toolBtn.getStyleClass().add("btn-side-tool");
+        toolBtn.setTooltip(new Tooltip("開啟工具選單"));
 
         ContextMenu contextMenu = new ContextMenu(
             menuSettings,
