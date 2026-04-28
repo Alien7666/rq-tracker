@@ -56,6 +56,7 @@ public class HistoryDialog {
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().add("modal-close");
+        closeBtn.setTooltip(new Tooltip("關閉歷史紀錄"));
         closeBtn.setOnAction(e -> dialog.close());
 
         Region spacer = new Region();
@@ -130,10 +131,12 @@ public class HistoryDialog {
 
         Button restoreBtn = new Button("↩ 復原");
         restoreBtn.getStyleClass().add("btn-restore");
+        restoreBtn.setTooltip(new Tooltip("將此 RQ 復原到目前清單"));
         restoreBtn.setOnAction(e -> handleRestore(rq.getId(), idx));
 
         Button deleteBtn = new Button("🗑 永久刪除");
         deleteBtn.getStyleClass().add("btn-del-arc");
+        deleteBtn.setTooltip(new Tooltip("永久刪除此筆歷史紀錄"));
         deleteBtn.setOnAction(e -> handleDeleteHistory(rq.getId(), idx));
 
         HBox row = new HBox(12, info, restoreBtn, deleteBtn);

@@ -3,13 +3,14 @@ package com.rqtracker.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -23,7 +24,7 @@ public final class UpdateService {
 
     private static final Logger LOG = Logger.getLogger(UpdateService.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final String CMD_SCRIPT_NAME = "rq-update-runner.cmd";
+    private static final String VBS_SCRIPT_NAME = "rq-update-runner.vbs";
     private static final String UPDATE_LOG_NAME = "rq-update-log.txt";
     private static final String UPDATE_MSI_LOG_NAME = "rq-update-msi.log";
 
@@ -111,8 +112,13 @@ public final class UpdateService {
     // ── 安裝啟動 ──────────────────────────────────────────────────────────────
 
     /**
-     * 啟動 detached cmd 接力腳本：等主程式退出 → msiexec 提權安裝 → 重啟新版。
-     * 呼叫端應在短暫倒數後 {@link #exitForUpdate()} 結束 JVM。
+     * 透過 wscript.exe 啟動 VBScript runner：等主程式結束 → ShellExecute "runas" 觸發 UAC →
+     * msiexec 安裝 → 等完成 → 啟動新版 EXE。
+     *
+     * 為什麼用 VBScript 而不是 cmd 接力：
+     *   - wscript.exe 不繼承 Java 的 console handle，避開 detached cmd 中 stdin 失效導致 timeout 失敗的問題
+     *   - Shell.Application.ShellExecute "runas" 是 Windows 官方 ShellExecuteEx API，UAC 必跳前景
+     *   - WMI 查程序狀態，不靠 tasklist + PID（避開 PID reuse）
      */
     public static void launchInstaller(Path msi) throws IOException {
         if (msi == null) {
@@ -130,31 +136,36 @@ public final class UpdateService {
         if (!canRelaunch) {
             throw new IOException("目前不是以已安裝的 RQTracker.exe 執行，無法自動更新。");
         }
+        String exeName = Path.of(exePath).getFileName().toString();
 
         long pid = ProcessHandle.current().pid();
         Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
-        Path script = tmpDir.resolve(CMD_SCRIPT_NAME);
+        Path script = tmpDir.resolve(VBS_SCRIPT_NAME);
         Path msiLog = tmpDir.resolve(UPDATE_MSI_LOG_NAME);
-        Path runnerLog = tmpDir.resolve(UPDATE_LOG_NAME);
+        Path runLog = tmpDir.resolve(UPDATE_LOG_NAME);
 
-        // 把 PID/MSI/EXE 直接寫死在腳本內，避免 cmd /c 多層引號傳遞造成的 strip-quote bug。
-        String content = buildCmdScript(msiAbs, pid, exePath, msiLog, runnerLog);
-        Files.writeString(script, content, Charset.defaultCharset());
+        String content = buildVbsScript(msiAbs, pid, exePath, exeName, msiLog, runLog);
 
-        // 在 Java 端先寫一行起始訊息到 runnerLog；若之後 log 沒有 "runner started"，代表 cmd 根本沒被 spawn。
-        Files.writeString(runnerLog,
-            "[" + java.time.LocalDateTime.now() + "] java spawning runner: " + script
+        // VBScript 必須以 UTF-16 LE + BOM 寫出，wscript 才會正確解析中文
+        byte[] body = content.getBytes(StandardCharsets.UTF_16LE);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(body.length + 2);
+        baos.write(0xFF);
+        baos.write(0xFE);
+        baos.write(body, 0, body.length);
+        Files.write(script, baos.toByteArray());
+
+        // 先寫一行 Java 端起始記錄；之後若 runner log 沒有 step01，代表 wscript 沒被 spawn
+        Files.writeString(runLog,
+            "[" + java.time.LocalDateTime.now() + "] java spawning wscript: " + script
                 + System.lineSeparator(),
-            Charset.defaultCharset(),
+            StandardCharsets.UTF_8,
             java.nio.file.StandardOpenOption.CREATE,
             java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
 
-        // cmd /c start "title" /min "script.cmd"
-        // 只有一個帶引號參數，沒有 cmd /c 串接的 quote-strip 問題。
-        new ProcessBuilder(
-            "cmd.exe", "/c", "start", "RQ Tracker 更新", "/min",
-            script.toString()
-        ).start();
+        // wscript //B = batch (no error popups), //Nologo = no banner
+        new ProcessBuilder("wscript.exe", "//B", "//Nologo", script.toString())
+            .redirectErrorStream(true)
+            .start();
     }
 
     public static void exitForUpdate() {
@@ -163,100 +174,101 @@ public final class UpdateService {
     }
 
     /**
-     * 產生 cmd 接力腳本內容。msiLog/runnerLog 路徑會直接內嵌；MSI、PID、EXE 透過 %~1 %~2 %~3 傳入。
-     * 不在 Java 端拼接路徑就能避開引號 escape 的 corner case。
+     * 產生 VBScript runner 內容；所有路徑與 PID 直接內嵌，不靠命令列引數。
      */
-    static String buildCmdScript(Path msi, long pid, String exePath, Path msiLog, Path runnerLog) {
-        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
-        Path psOut = tmpDir.resolve("rq-update-ps.txt");
-        Path vbsFile = tmpDir.resolve("rq-update-elevate.vbs");
-
+    static String buildVbsScript(Path msi, long pid, String exePath, String exeName,
+                                 Path msiLog, Path runLog) {
         StringBuilder sb = new StringBuilder();
-        sb.append("@echo off\r\n");
-        sb.append("chcp 65001 > nul\r\n");
-        sb.append("set \"MSI=").append(msi.toString()).append("\"\r\n");
-        sb.append("set \"PID=").append(pid).append("\"\r\n");
-        sb.append("set \"EXE=").append(exePath).append("\"\r\n");
-        sb.append("set \"LOG=").append(msiLog.toString()).append("\"\r\n");
-        sb.append("set \"RLOG=").append(runnerLog.toString()).append("\"\r\n");
-        sb.append("set \"PSOUT=").append(psOut.toString()).append("\"\r\n");
-        sb.append("set \"VBS=").append(vbsFile.toString()).append("\"\r\n");
+        sb.append("Option Explicit\r\n");
+        sb.append("Const MSI = \"").append(vbsEscape(msi.toString())).append("\"\r\n");
+        sb.append("Const PID = ").append(pid).append("\r\n");
+        sb.append("Const EXE = \"").append(vbsEscape(exePath)).append("\"\r\n");
+        sb.append("Const EXENAME = \"").append(vbsEscape(exeName)).append("\"\r\n");
+        sb.append("Const MSILOG = \"").append(vbsEscape(msiLog.toString())).append("\"\r\n");
+        sb.append("Const RUNLOG = \"").append(vbsEscape(runLog.toString())).append("\"\r\n");
         sb.append("\r\n");
-        sb.append("call :LOG step01 runner started\r\n");
-        // 不再輪詢 tasklist：3 秒倒數已確保 Java 退出，再多等 8 秒做緩衝即可。
-        sb.append("call :LOG step02 sleeping 8s buffer\r\n");
-        sb.append("timeout /t 8 /nobreak > nul\r\n");
-        sb.append("call :LOG step03 attempting elevation method 1: powershell Start-Process -Verb RunAs\r\n");
+        sb.append("Dim sh, fso, wmi, procs, t, started\r\n");
+        sb.append("Set sh  = CreateObject(\"WScript.Shell\")\r\n");
+        sb.append("Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n");
+        sb.append("Set wmi = GetObject(\"winmgmts:\\\\.\\root\\cimv2\")\r\n");
         sb.append("\r\n");
-        // 第 1 種提權：PowerShell -Verb RunAs；輸出寫到 PSOUT 以便診斷
-        sb.append("powershell -NoProfile -ExecutionPolicy Bypass -Command \"try { $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i','%MSI%','/qb!','/norestart','/L*v','%LOG%') -Verb RunAs -Wait -PassThru -ErrorAction Stop; Write-Output ('EXIT:' + $p.ExitCode); exit $p.ExitCode } catch { Write-Output ('ERR:' + $_.Exception.Message); exit 1223 }\" > \"%PSOUT%\" 2>&1\r\n");
-        sb.append("set \"RC=%errorlevel%\"\r\n");
-        sb.append("call :LOG step04 powershell exit=%RC% (see PSOUT)\r\n");
-        sb.append("type \"%PSOUT%\" >> \"%RLOG%\" 2>nul\r\n");
+        sb.append("Sub LogLine(msg)\r\n");
+        sb.append("    On Error Resume Next\r\n");
+        sb.append("    Dim f\r\n");
+        sb.append("    Set f = fso.OpenTextFile(RUNLOG, 8, True)\r\n");
+        sb.append("    f.WriteLine \"[\" & Now & \"] \" & msg\r\n");
+        sb.append("    f.Close\r\n");
+        sb.append("    On Error Goto 0\r\n");
+        sb.append("End Sub\r\n");
         sb.append("\r\n");
-        sb.append("if \"%RC%\"==\"0\" goto ok\r\n");
-        sb.append("if \"%RC%\"==\"3010\" goto ok\r\n");
-        // 1602/1223 = 使用者主動取消 UAC，不嘗試 fallback
-        sb.append("if \"%RC%\"==\"1602\" goto cancel\r\n");
-        sb.append("if \"%RC%\"==\"1223\" goto try_mshta\r\n");
-        sb.append("goto try_mshta\r\n");
+        sb.append("LogLine \"step01 vbs runner started, pid=\" & PID & \" exe=\" & EXENAME\r\n");
         sb.append("\r\n");
-        // 第 2 種提權：mshta + VBScript ShellExecute "runas"（Windows 官方 ShellExecuteEx API，最相容）
-        sb.append(":try_mshta\r\n");
-        sb.append("call :LOG step05 attempting elevation method 2: mshta vbscript ShellExecute runas\r\n");
-        sb.append("> \"%VBS%\" echo Set sh = CreateObject(\"Shell.Application\")\r\n");
-        sb.append(">> \"%VBS%\" echo sh.ShellExecute \"msiexec.exe\", \"/i \"\"%MSI%\"\" /qb! /norestart /L*v \"\"%LOG%\"\"\", \"\", \"runas\", 1\r\n");
-        sb.append("cscript //nologo //B \"%VBS%\"\r\n");
-        sb.append("set \"RC2=%errorlevel%\"\r\n");
-        sb.append("call :LOG step06 cscript exit=%RC2% (mshta/runas dispatched, msiexec running detached)\r\n");
-        // ShellExecute 是非同步的，要靠 msiexec log 的內容判斷是否完成
-        sb.append("call :LOG step07 polling msiexec log for completion (max 120s)\r\n");
-        sb.append("set /a WAIT=0\r\n");
-        sb.append(":wait_msi\r\n");
-        sb.append("if not exist \"%LOG%\" goto wait_more\r\n");
-        sb.append("findstr /C:\"=== Logging stopped\" \"%LOG%\" > nul 2>&1\r\n");
-        sb.append("if not errorlevel 1 goto msi_done\r\n");
-        sb.append(":wait_more\r\n");
-        sb.append("set /a WAIT+=1\r\n");
-        sb.append("if %WAIT% GEQ 120 goto msi_timeout\r\n");
-        sb.append("timeout /t 1 /nobreak > nul\r\n");
-        sb.append("goto wait_msi\r\n");
+        // 等主程式真正退出（最多 30 秒）
+        sb.append("For t = 1 To 30\r\n");
+        sb.append("    Set procs = wmi.ExecQuery(\"SELECT * FROM Win32_Process WHERE ProcessId=\" & PID & \" AND Name='\" & EXENAME & \"'\")\r\n");
+        sb.append("    If procs.Count = 0 Then Exit For\r\n");
+        sb.append("    WScript.Sleep 1000\r\n");
+        sb.append("Next\r\n");
+        sb.append("LogLine \"step02 main app gone (after \" & t & \"s wait)\"\r\n");
+        sb.append("WScript.Sleep 2000\r\n");
         sb.append("\r\n");
-        sb.append(":msi_done\r\n");
-        sb.append("call :LOG step08 msiexec log indicates completion (waited=%WAIT%s)\r\n");
-        sb.append("goto ok\r\n");
+        // 觸發 UAC + msiexec
+        sb.append("LogLine \"step03 invoking ShellExecute runas msiexec\"\r\n");
+        sb.append("Dim shellApp\r\n");
+        sb.append("Set shellApp = CreateObject(\"Shell.Application\")\r\n");
+        sb.append("On Error Resume Next\r\n");
+        sb.append("shellApp.ShellExecute \"msiexec.exe\", \"/i \"\"\" & MSI & \"\"\" /qb! /norestart /L*v \"\"\" & MSILOG & \"\"\"\", \"\", \"runas\", 1\r\n");
+        sb.append("If Err.Number <> 0 Then\r\n");
+        sb.append("    LogLine \"step03 ShellExecute FAILED: \" & Err.Number & \" \" & Err.Description\r\n");
+        sb.append("    MsgBox \"RQ Tracker 更新失敗：無法觸發 Windows 授權視窗。\" & vbCrLf & \"錯誤：\" & Err.Number & \" \" & Err.Description, vbCritical, \"更新失敗\"\r\n");
+        sb.append("    sh.Run \"\"\"\" & EXE & \"\"\"\", 1, False\r\n");
+        sb.append("    WScript.Quit 1\r\n");
+        sb.append("End If\r\n");
+        sb.append("On Error Goto 0\r\n");
         sb.append("\r\n");
-        sb.append(":msi_timeout\r\n");
-        sb.append("call :LOG step08 TIMEOUT waiting for msiexec log\r\n");
-        sb.append("set \"RC=9999\"\r\n");
-        sb.append("goto fail\r\n");
+        // 等 msiexec 出現
+        sb.append("LogLine \"step04 waiting for msiexec.exe to appear (max 30s)\"\r\n");
+        sb.append("started = False\r\n");
+        sb.append("For t = 1 To 30\r\n");
+        sb.append("    Set procs = wmi.ExecQuery(\"SELECT * FROM Win32_Process WHERE Name='msiexec.exe'\")\r\n");
+        sb.append("    If procs.Count > 0 Then\r\n");
+        sb.append("        started = True\r\n");
+        sb.append("        Exit For\r\n");
+        sb.append("    End If\r\n");
+        sb.append("    WScript.Sleep 1000\r\n");
+        sb.append("Next\r\n");
         sb.append("\r\n");
-        sb.append(":ok\r\n");
-        sb.append("call :LOG step09 SUCCESS, relaunching EXE\r\n");
-        sb.append("start \"\" \"%EXE%\"\r\n");
-        sb.append("mshta \"javascript:var sh=new ActiveXObject('WScript.Shell');sh.Popup('RQ Tracker 更新完成，新版已啟動。',3,'更新成功',64);close()\"\r\n");
-        sb.append("exit /b 0\r\n");
+        sb.append("If Not started Then\r\n");
+        sb.append("    LogLine \"step04 msiexec never appeared (likely UAC cancel)\"\r\n");
+        sb.append("    MsgBox \"您取消了 Windows 授權，更新未進行。\" & vbCrLf & \"舊版 RQ Tracker 將重新啟動。\", vbInformation, \"更新取消\"\r\n");
+        sb.append("    sh.Run \"\"\"\" & EXE & \"\"\"\", 1, False\r\n");
+        sb.append("    WScript.Quit 0\r\n");
+        sb.append("End If\r\n");
         sb.append("\r\n");
-        sb.append(":cancel\r\n");
-        sb.append("call :LOG step09 CANCELLED by user\r\n");
-        sb.append("mshta \"javascript:var sh=new ActiveXObject('WScript.Shell');sh.Popup('您取消了 Windows 授權，更新未進行。\\n舊版 RQ Tracker 將重新啟動。',0,'更新取消',48);close()\"\r\n");
-        sb.append("start \"\" \"%EXE%\"\r\n");
-        sb.append("exit /b 0\r\n");
+        // 等 msiexec 結束（最多 5 分鐘）
+        sb.append("LogLine \"step05 msiexec started, waiting for completion (max 300s)\"\r\n");
+        sb.append("For t = 1 To 300\r\n");
+        sb.append("    Set procs = wmi.ExecQuery(\"SELECT * FROM Win32_Process WHERE Name='msiexec.exe'\")\r\n");
+        sb.append("    If procs.Count = 0 Then Exit For\r\n");
+        sb.append("    WScript.Sleep 1000\r\n");
+        sb.append("Next\r\n");
+        sb.append("LogLine \"step06 msiexec completed (after \" & t & \"s)\"\r\n");
         sb.append("\r\n");
-        sb.append(":fail\r\n");
-        sb.append("call :LOG step99 FAIL rc=%RC%\r\n");
-        sb.append("mshta \"javascript:var sh=new ActiveXObject('WScript.Shell');sh.Popup('RQ Tracker 更新失敗 (代碼 %RC%)\\n\\n詳細記錄：%LOG%\\n執行記錄：%RLOG%',0,'更新失敗',16);close()\"\r\n");
-        sb.append("start \"\" \"%EXE%\"\r\n");
-        sb.append("exit /b %RC%\r\n");
-        sb.append("\r\n");
-        sb.append(":LOG\r\n");
-        sb.append(">> \"%RLOG%\" echo [%DATE% %TIME%] %*\r\n");
-        sb.append("goto :eof\r\n");
+        // 檢查並啟動新版 EXE
+        sb.append("If Not fso.FileExists(EXE) Then\r\n");
+        sb.append("    LogLine \"step07 EXE missing after install: \" & EXE\r\n");
+        sb.append("    MsgBox \"RQ Tracker 更新可能失敗：找不到新版執行檔。\" & vbCrLf & \"請查看安裝記錄：\" & MSILOG, vbExclamation, \"更新異常\"\r\n");
+        sb.append("    WScript.Quit 1\r\n");
+        sb.append("End If\r\n");
+        sb.append("LogLine \"step08 launching new EXE: \" & EXE\r\n");
+        sb.append("sh.Run \"\"\"\" & EXE & \"\"\"\", 1, False\r\n");
+        sb.append("LogLine \"step09 done\"\r\n");
+        sb.append("WScript.Quit 0\r\n");
         return sb.toString();
     }
 
-    private static String quote(String s) {
-        return "\"" + s + "\"";
+    private static String vbsEscape(String s) {
+        return s == null ? "" : s.replace("\"", "\"\"");
     }
 
     // ── 解析 ──────────────────────────────────────────────────────────────────
