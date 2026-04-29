@@ -62,6 +62,7 @@ public class FolderListDialog {
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().add("modal-close");
+        closeBtn.setTooltip(new Tooltip("關閉資料夾清單"));
         closeBtn.setOnAction(e -> dialog.close());
 
         Region spacer = new Region();
@@ -178,7 +179,7 @@ public class FolderListDialog {
         folderLabel.setWrapText(true);
         HBox.setHgrow(folderLabel, Priority.ALWAYS);
 
-        Button copyFolderBtn = copyButton(folder);
+        Button copyFolderBtn = copyButton(folder, "複製資料夾路徑");
 
         HBox pathRow = new HBox(8, folderLabel, copyFolderBtn);
         pathRow.getStyleClass().add("folder-path-row");
@@ -229,8 +230,8 @@ public class FolderListDialog {
             // 複製檔名、複製完整路徑
             String fullPath = folder.replaceAll("\\\\$", "") + "\\" + entry.filename();
             row.getChildren().addAll(
-                copyButton(entry.filename()),
-                copyButton(fullPath)
+                copyButton(entry.filename(), "複製檔名"),
+                copyButton(fullPath, "複製完整路徑")
             );
         } else {
             // 只有資料夾
@@ -274,9 +275,10 @@ public class FolderListDialog {
         return row;
     }
 
-    private Button copyButton(String text) {
+    private Button copyButton(String text, String tooltip) {
         Button btn = new Button("⧉");
         btn.getStyleClass().add("copy-btn");
+        btn.setTooltip(new Tooltip(tooltip));
         btn.setOnAction(e -> {
             e.consume();
             ClipboardUtils.copyText(text);
