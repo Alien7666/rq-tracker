@@ -86,6 +86,7 @@ public class VerFilesDialog {
         // ── Footer ──────────────────────────────────────────────────
         Button cancelBtn = new Button("取消");
         cancelBtn.getStyleClass().add("btn-ghost");
+        cancelBtn.setCancelButton(true);
         cancelBtn.setOnAction(e -> dialog.close());
 
         Button viewListBtn = new Button("📋 查看清單");
@@ -179,9 +180,11 @@ public class VerFilesDialog {
 
         Button closeFtr = new Button("關閉");
         closeFtr.getStyleClass().add("btn-ghost");
+        closeFtr.setCancelButton(true);
         closeFtr.setOnAction(e -> outputStage.close());
         Button copyBtn2 = new Button("複製全部");
         copyBtn2.getStyleClass().add("btn-primary");
+        copyBtn2.setDefaultButton(true);
         copyBtn2.setOnAction(e -> { ClipboardUtils.copyText(content); });
         HBox ftr = new HBox(12, closeFtr, copyBtn2);
         ftr.getStyleClass().add("modal-footer");

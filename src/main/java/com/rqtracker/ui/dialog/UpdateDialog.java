@@ -62,6 +62,7 @@ public class UpdateDialog {
 
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().add("modal-close");
+        closeBtn.setCancelButton(true);
         closeBtn.setOnAction(e -> cancelAndClose());
 
         Region spacer = new Region();
@@ -135,6 +136,8 @@ public class UpdateDialog {
 
                 Button ok = new Button("確定");
                 ok.getStyleClass().add("btn-primary");
+                ok.setDefaultButton(true);
+                ok.setCancelButton(true);
                 ok.setOnAction(e -> dialog.close());
                 footer.getChildren().add(ok);
                 dialog.setMinHeight(240);
@@ -159,6 +162,7 @@ public class UpdateDialog {
 
                 Button cancel = new Button("略過此版本");
                 cancel.getStyleClass().add("btn-ghost");
+                cancel.setCancelButton(true);
                 cancel.setOnAction(e -> {
                     appConfig.setSkipVersion(pendingInfo.version());
                     appConfig.save();
@@ -167,6 +171,7 @@ public class UpdateDialog {
 
                 Button dl = new Button("下載並安裝");
                 dl.getStyleClass().add("btn-primary");
+                dl.setDefaultButton(true);
                 dl.setOnAction(e -> startDownload());
 
                 footer.getChildren().addAll(cancel, dl);
@@ -183,6 +188,7 @@ public class UpdateDialog {
 
                 Button cancelBtn = new Button("取消");
                 cancelBtn.getStyleClass().add("btn-ghost");
+                cancelBtn.setCancelButton(true);
                 cancelBtn.setOnAction(e -> {
                     cancelled.set(true);
                     if (dlThread != null) dlThread.interrupt();
@@ -209,10 +215,12 @@ public class UpdateDialog {
 
                 Button later = new Button("稍後安裝");
                 later.getStyleClass().add("btn-ghost");
+                later.setCancelButton(true);
                 later.setOnAction(e -> dialog.close());
 
                 Button install = new Button("立即安裝");
                 install.getStyleClass().add("btn-primary");
+                install.setDefaultButton(true);
                 install.setOnAction(e -> {
                     if (!installStarted.compareAndSet(false, true)) return;
                     install.setDisable(true);
@@ -230,6 +238,8 @@ public class UpdateDialog {
 
                 Button ok = new Button("確定");
                 ok.getStyleClass().add("btn-ghost");
+                ok.setDefaultButton(true);
+                ok.setCancelButton(true);
                 ok.setOnAction(e -> dialog.close());
                 footer.getChildren().add(ok);
                 dialog.setMinHeight(220);

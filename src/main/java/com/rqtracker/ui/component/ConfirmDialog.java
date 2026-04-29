@@ -44,11 +44,13 @@ public class ConfirmDialog {
 
         Button cancelBtn = new Button("取消");
         cancelBtn.getStyleClass().add("btn-ghost");
+        cancelBtn.setCancelButton(true);
         cancelBtn.setOnAction(e -> dialog.close());
 
         Button confirmBtn = new Button("確認");
         confirmBtn.getStyleClass().addAll("btn-primary",
             type == Type.DANGER ? "btn-danger" : type == Type.WARNING ? "btn-warn" : "");
+        confirmBtn.setDefaultButton(true);
         confirmBtn.setOnAction(e -> {
             dialog.close();
             onConfirm.run();

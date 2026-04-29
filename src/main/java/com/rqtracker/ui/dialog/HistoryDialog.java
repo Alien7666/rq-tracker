@@ -57,6 +57,7 @@ public class HistoryDialog {
         Button closeBtn = new Button("✕");
         closeBtn.getStyleClass().add("modal-close");
         closeBtn.setTooltip(new Tooltip("關閉歷史紀錄"));
+        closeBtn.setCancelButton(true);
         closeBtn.setOnAction(e -> dialog.close());
 
         Region spacer = new Region();

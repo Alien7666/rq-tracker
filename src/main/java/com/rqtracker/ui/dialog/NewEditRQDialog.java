@@ -120,6 +120,7 @@ public class NewEditRQDialog {
         // ── Footer ──────────────────────────────────────────────────────
         Button cancelBtn = new Button("取消");
         cancelBtn.getStyleClass().add("btn-ghost");
+        cancelBtn.setCancelButton(true);
         cancelBtn.setOnAction(e -> dialog.close());
 
         Button submitBtn = new Button(isEdit ? "儲存" : "建立");
