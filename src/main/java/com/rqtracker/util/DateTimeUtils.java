@@ -20,6 +20,10 @@ public final class DateTimeUtils {
     private static final DateTimeFormatter BACKUP_TIME_FMT =
         DateTimeFormatter.ofPattern("HH:mm");
 
+    /** 備份時間戳格式 yyyyMMdd_HHmmss（用於每次備份的唯一檔名） */
+    private static final DateTimeFormatter BACKUP_TS_FMT =
+        DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+
     /** ISO 8601 格式（用於 createdAt / archivedAt / savedAt） */
     private static final DateTimeFormatter ISO_FMT =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
@@ -45,6 +49,11 @@ public final class DateTimeUtils {
     /** 取得目前備份時間字串，例："09:00" */
     public static String nowBackupTime() {
         return LocalTime.now().format(BACKUP_TIME_FMT);
+    }
+
+    /** 取得目前備份時間戳字串，例："20260507_143022" */
+    public static String nowBackupTimestamp() {
+        return LocalDateTime.now().format(BACKUP_TS_FMT);
     }
 
     /**

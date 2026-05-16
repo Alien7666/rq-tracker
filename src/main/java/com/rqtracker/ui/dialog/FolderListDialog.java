@@ -4,16 +4,21 @@ import com.rqtracker.model.RQData;
 import com.rqtracker.model.TaskDef;
 import com.rqtracker.service.AppConfig;
 import com.rqtracker.service.DataStore;
+import com.rqtracker.service.TaskCascadeService;
 import com.rqtracker.service.TaskFactory;
+import com.rqtracker.ui.component.SectionTimestamp;
 import com.rqtracker.util.ClipboardUtils;
 import com.rqtracker.util.DateTimeUtils;
 import com.rqtracker.util.DialogHelper;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -94,12 +99,19 @@ public class FolderListDialog {
         DialogHelper.makeMovable(dialog, modalHeader);
         DialogHelper.makeResizable(dialog, modal);
 
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) { dialog.close(); e.consume(); }
+        });
+
         buildContent();
     }
 
     public void setOnCheckChanged(Runnable cb) { this.onCheckChanged = cb; }
 
-    public void show() { dialog.show(); }
+    public void show() {
+        dialog.show();
+        Platform.runLater(dialog::requestFocus);
+    }
     public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
@@ -248,8 +260,11 @@ public class FolderListDialog {
             RQData latest = dataStore.getRQ(rqId);
             if (latest == null) return;
             if (!Boolean.TRUE.equals(latest.getChecks().get(entry.key()))) {
+                String ts = DateTimeUtils.nowZhTW();
                 latest.getChecks().put(entry.key(), true);
-                latest.getTimestamps().put(entry.key(), DateTimeUtils.nowZhTW());
+                latest.getTimestamps().put(entry.key(), ts);
+                TaskCascadeService.applyDeliveryToDevelopment(latest, ts);
+                updateSectionTimestamps(latest);
                 dataStore.saveRQ(rqId, latest);
                 if (onCheckChanged != null) onCheckChanged.run();
                 buildContent();
@@ -264,10 +279,13 @@ public class FolderListDialog {
             boolean wasChecked = Boolean.TRUE.equals(latest.getChecks().get(entry.key()));
             latest.getChecks().put(entry.key(), !wasChecked);
             if (!wasChecked) {
-                latest.getTimestamps().put(entry.key(), DateTimeUtils.nowZhTW());
+                String ts = DateTimeUtils.nowZhTW();
+                latest.getTimestamps().put(entry.key(), ts);
+                TaskCascadeService.applyDeliveryToDevelopment(latest, ts);
             } else {
                 latest.getTimestamps().remove(entry.key());
             }
+            updateSectionTimestamps(latest);
             dataStore.saveRQ(rqId, latest);
             if (onCheckChanged != null) onCheckChanged.run();
             buildContent();
@@ -285,6 +303,19 @@ public class FolderListDialog {
             ClipboardUtils.copyText(text);
         });
         return btn;
+    }
+
+    private void updateSectionTimestamps(RQData rq) {
+        String dlRoot = appConfig.getDownloadsRoot();
+        String svnRoot = appConfig.getSvnRoot();
+
+        SectionTimestamp.update(rq,
+            i -> TaskFactory.versionDevTasks(i),
+            i -> TaskFactory.versionSVNTasks(i, rq.getVersions().get(i).getName(), rq, svnRoot),
+            i -> TaskFactory.versionDeliverables(i, rq, rq.getVersions().get(i).getName(), dlRoot),
+            TaskFactory.finalDeliveryTasks(rq, dlRoot),
+            TaskFactory.sharedSVNTasks(rq, svnRoot)
+        );
     }
 
 }

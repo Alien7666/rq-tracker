@@ -96,3 +96,31 @@ Several Windows paths are hardcoded in task generators. When modifying, search f
 ### Localization
 
 All UI text is Traditional Chinese (`zh-TW`). Task labels, folder names, and error messages are in Chinese.
+
+## Post-Modification Checklist（每次修改完成後必須執行）
+
+**每次完成程式修改，Claude 必須依序自動執行以下所有步驟，不得跳過：**
+
+1. 更新 `BuildInfo.VERSION`（`src/main/java/com/rqtracker/BuildInfo.java`）
+2. 更新 `pom.xml` 中的 `<version>`（與 BuildInfo.VERSION 保持一致）
+3. 執行 jlink（產生 Runtime Image）：
+   ```bash
+   mvn clean javafx:jlink
+   ```
+4. 執行 jpackage（產生 MSI 安裝檔）：
+   ```bash
+   mvn exec:exec@jpackage
+   ```
+   > MSI 輸出至 `target/installer/RQTracker-{VERSION}.msi`
+5. 建立 GitHub Release 並上傳 MSI：
+   ```bash
+   gh release create v{VERSION} \
+     --title "RQ Tracker {VERSION}" \
+     --notes "{本次變更說明}" \
+     target/installer/RQTracker-{VERSION}.msi
+   ```
+6. 確認 Release URL 已產生，所有使用者下次啟動將自動偵測到新版。
+
+> GitHub Repo：`https://github.com/Alien7666/rq-tracker`
+> Update API：`https://api.github.com/repos/Alien7666/rq-tracker/releases/latest`
+> MSI 說明：`--description` 請使用純 ASCII（WiX 不支援中文 description 欄位）

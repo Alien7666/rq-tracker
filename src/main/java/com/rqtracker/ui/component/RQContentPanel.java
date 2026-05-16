@@ -7,6 +7,7 @@ import com.rqtracker.model.TaskResult;
 import com.rqtracker.service.AppConfig;
 import com.rqtracker.service.DataStore;
 import com.rqtracker.service.ProgressCalc;
+import com.rqtracker.service.TaskCascadeService;
 import com.rqtracker.service.TaskFactory;
 import com.rqtracker.ui.dialog.VerFilesDialog;
 import com.rqtracker.util.DateTimeUtils;
@@ -57,10 +58,12 @@ public class RQContentPanel extends VBox {
 
     private PauseTransition noteDebounce;
     private PauseTransition noteResizeDebounce;
+    private PauseTransition splitResizeDebounce;
 
     public void dispose() {
-        if (noteDebounce       != null) noteDebounce.stop();
-        if (noteResizeDebounce != null) noteResizeDebounce.stop();
+        if (noteDebounce        != null) noteDebounce.stop();
+        if (noteResizeDebounce  != null) noteResizeDebounce.stop();
+        if (splitResizeDebounce != null) splitResizeDebounce.stop();
     }
 
     public RQContentPanel(DataStore dataStore, AppConfig appConfig, String rqId,
@@ -422,20 +425,20 @@ public class RQContentPanel extends VBox {
         vBody.setManaged(!vCollapsed);
         vBody.setVisible(!vCollapsed);
 
-        String splitKey = rqId + "_v" + vIdx;
-        double[] savedPos = appConfig.getSplitPositions(splitKey);
-        if (savedPos != null && savedPos.length == 2) {
-            vBody.setDividerPositions(savedPos[0], savedPos[1]);
-        } else {
-            vBody.setDividerPositions(0.2, 0.6);
-        }
+        double[] savedPos = appConfig.getSplitPositions();
+        vBody.setDividerPositions(savedPos[0], savedPos[1]);
 
-        vBody.getDividers().get(0).positionProperty().addListener((obs, ov, nv) ->
-            appConfig.setSplitPositions(splitKey,
-                new double[]{ vBody.getDividerPositions()[0], vBody.getDividerPositions()[1] }));
-        vBody.getDividers().get(1).positionProperty().addListener((obs, ov, nv) ->
-            appConfig.setSplitPositions(splitKey,
-                new double[]{ vBody.getDividerPositions()[0], vBody.getDividerPositions()[1] }));
+        Runnable onDividerChanged = () -> {
+            double[] cur = vBody.getDividerPositions();
+            appConfig.setSplitPositions(new double[] { cur[0], cur[1] });
+            if (splitResizeDebounce == null) {
+                splitResizeDebounce = new PauseTransition(Duration.millis(500));
+                splitResizeDebounce.setOnFinished(e -> appConfig.save());
+            }
+            splitResizeDebounce.playFromStart();
+        };
+        vBody.getDividers().get(0).positionProperty().addListener((obs, ov, nv) -> onDividerChanged.run());
+        vBody.getDividers().get(1).positionProperty().addListener((obs, ov, nv) -> onDividerChanged.run());
 
         vHeader.setOnMouseClicked(e -> {
             boolean nowCollapsed = !vBody.isVisible();
@@ -535,8 +538,10 @@ public class RQContentPanel extends VBox {
     private void doCheck(String rqId, String key) {
         RQData rq = dataStore.getRQ(rqId);
         if (rq == null) return;
+        String ts = DateTimeUtils.nowZhTW();
         rq.getChecks().put(key, true);
-        rq.getTimestamps().put(key, DateTimeUtils.nowZhTW());
+        rq.getTimestamps().put(key, ts);
+        TaskCascadeService.applyDeliveryToDevelopment(rq, ts);
         updateSectionTimestamps(rq);
         dataStore.saveRQ(rqId, rq);
         if (onRefresh != null) onRefresh.accept(rqId);

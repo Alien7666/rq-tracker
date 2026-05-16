@@ -40,14 +40,14 @@ public final class TaskFactory {
         return List.of(
             TaskDef.builder(p + "03", "撰寫程式（含 SQL）").step("03").build(),
             TaskDef.builder(p + "04", "本機測試程式").step("04").build(),
-            TaskDef.builder(p + "05", "掃 Fortify").step("05").sub("靜態掃描").build(),
+            TaskDef.builder(p + "05", "Fortify").step("05").sub("靜態掃描").build(),
             TaskDef.builder(p + "05b", "製版").step("06").build(),
             TaskDef.builder(p + "06", "上 SIT").step("07").sub("部署").build(),
             TaskDef.builder(p + "07", "SIT 測試").step("08").build(),
-            TaskDef.builder(p + "07b", "撰寫測試報告").step("09").build(),
+            TaskDef.builder(p + "07b", "測試報告").step("09").build(),
             TaskDef.builder(p + "08", "ZAP 動態掃描").step("10").build(),
             TaskDef.builder(p + "09", "匯出弱點報告").step("11").build(),
-            TaskDef.builder(p + "09b", "撰寫滲透測試報告").step("12").build()
+            TaskDef.builder(p + "09b", "滲透測試報告").step("12").build()
         );
     }
 

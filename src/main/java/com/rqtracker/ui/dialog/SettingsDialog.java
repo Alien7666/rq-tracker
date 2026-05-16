@@ -3,10 +3,13 @@ package com.rqtracker.ui.dialog;
 import com.rqtracker.service.AppConfig;
 import com.rqtracker.util.DialogHelper;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
@@ -151,11 +154,22 @@ public class SettingsDialog {
         dialog.setScene(scene);
         DialogHelper.makeMovable(dialog, modalHeader);
         DialogHelper.makeResizable(dialog, modal);
+
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                dialog.close(); e.consume();
+            } else if (e.getCode() == KeyCode.ENTER && !(scene.getFocusOwner() instanceof TextArea)) {
+                handleSave(); e.consume();
+            }
+        });
     }
 
     public void setOnSaved(Runnable onSaved) { this.onSaved = onSaved; }
 
-    public void show() { dialog.show(); }
+    public void show() {
+        dialog.show();
+        Platform.runLater(dialog::requestFocus);
+    }
     public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────

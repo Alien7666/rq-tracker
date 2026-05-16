@@ -11,9 +11,11 @@ import com.rqtracker.service.FileListGenerator;
 import com.rqtracker.service.FolderCreatorService;
 import com.rqtracker.service.ImportExportService;
 import com.rqtracker.service.ProgressCalc;
+import com.rqtracker.service.TaskFactory;
 import com.rqtracker.ui.component.ConfirmDialog;
 import com.rqtracker.ui.component.RQContentPanel;
 import com.rqtracker.ui.component.RQTabBar;
+import com.rqtracker.ui.component.SectionTimestamp;
 import com.rqtracker.ui.component.SidePanel;
 import com.rqtracker.ui.component.ToastNotification;
 import com.rqtracker.BuildInfo;
@@ -31,6 +33,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.GaussianBlur;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
@@ -167,6 +171,14 @@ public class MainController {
 
         Scene scene = new Scene(root);
         applyTheme(scene);
+
+        // 主視窗的 Button 不應回應 Enter（保留給對話框）；Space 仍可正常觸發
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ENTER && scene.getFocusOwner() instanceof Button) {
+                e.consume();
+            }
+        });
+
         return scene;
     }
 
@@ -183,7 +195,6 @@ public class MainController {
             showEmptyState();
         }
         startScanScheduler();
-        startBackup();
         scheduleUpdateCheck();
     }
 
@@ -553,6 +564,7 @@ public class MainController {
             return t;
         });
         scanScheduler.scheduleAtFixedRate(this::runScan, 5, 180, TimeUnit.SECONDS);
+        scanScheduler.scheduleAtFixedRate(this::runScheduledBackup, 0, 6, TimeUnit.MINUTES);
     }
 
     private void runScan() {
@@ -564,7 +576,10 @@ public class MainController {
 
         Map<String, TaskResult> results = diskScanService.scan(rq);
         boolean anyChecked = diskScanService.autoCheck(rq, results);
-        if (anyChecked) dataStore.saveRQ(activeRqId, rq);
+        if (anyChecked) {
+            updateSectionTimestamps(rq);
+            dataStore.saveRQ(activeRqId, rq);
+        }
 
         Platform.runLater(() -> {
             sidePanel.setScanIndicator(false);
@@ -578,6 +593,19 @@ public class MainController {
     private void triggerManualScan() {
         showToast("掃描中…");
         if (scanScheduler != null) scanScheduler.submit(this::runScan);
+    }
+
+    private void updateSectionTimestamps(RQData rq) {
+        String dlRoot  = appConfig.getDownloadsRoot();
+        String svnRoot = appConfig.getSvnRoot();
+
+        SectionTimestamp.update(rq,
+            i -> TaskFactory.versionDevTasks(i),
+            i -> TaskFactory.versionSVNTasks(i, rq.getVersions().get(i).getName(), rq, svnRoot),
+            i -> TaskFactory.versionDeliverables(i, rq, rq.getVersions().get(i).getName(), dlRoot),
+            TaskFactory.finalDeliveryTasks(rq, dlRoot),
+            TaskFactory.sharedSVNTasks(rq, svnRoot)
+        );
     }
 
     private void triggerCreateFolders() {
@@ -654,16 +682,13 @@ public class MainController {
     // 備份
     // ──────────────────────────────────────────────────────────────
 
-    private void startBackup() {
-        Thread t = new Thread(() -> {
-            boolean ok = BackupService.runIfNeeded(dataStore, appConfig);
-            Platform.runLater(() -> {
-                sidePanel.setBackupStatus(BackupService.getStatusText(appConfig), !ok && !appConfig.hasBackupDir());
-                if (ok) showToast("✓ 備份完成");
-            });
-        }, "BackupService");
-        t.setDaemon(true);
-        t.start();
+    private void runScheduledBackup() {
+        if (!appConfig.hasBackupDir()) return;
+        boolean ok = BackupService.runNow(dataStore, appConfig);
+        Platform.runLater(() -> {
+            sidePanel.setBackupStatus(BackupService.getStatusText(appConfig), false);
+            if (ok) showToast("✓ 備份完成");
+        });
     }
 
     private void triggerBackupNow() {

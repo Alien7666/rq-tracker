@@ -7,8 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -63,9 +61,11 @@ public class AppConfig {
     /** 使用者選擇略過的版本號 */
     private String skipVersion = "";
 
-    /** 執行期 SplitPane 分隔位置快取（不寫入磁碟），key = rqId + "_v" + vIdx */
-    @JsonIgnore
-    private transient Map<String, double[]> runtimeSplitPositions = new HashMap<>();
+    /**
+     * 三欄 SplitPane 分隔位置（全域共用，所有 RQ 與版本卡片共享）。
+     * 預設 1:4.5:4.5 即 10%/45%/45%。
+     */
+    private double[] splitPositions = { 0.10, 0.55 };
 
     // ── 靜態載入 ──────────────────────────────────────────────────────────────
 
@@ -178,16 +178,27 @@ public class AppConfig {
     public String getSkipVersion() { return skipVersion != null ? skipVersion : ""; }
     public void setSkipVersion(String ver) { this.skipVersion = ver; }
 
-    @JsonIgnore
-    public double[] getSplitPositions(String key) {
-        if (runtimeSplitPositions == null) runtimeSplitPositions = new HashMap<>();
-        return runtimeSplitPositions.get(key);
+    /**
+     * 取得三欄 SplitPane 分隔位置（永遠回傳合法值 + 防禦性拷貝）。
+     * 若儲存值為 null/長度錯誤/越界/反序則回退預設 {0.10, 0.55}。
+     */
+    public double[] getSplitPositions() {
+        double[] v = this.splitPositions;
+        if (v == null || v.length != 2
+                || v[0] < 0.05 || v[1] > 0.95 || v[0] >= v[1]) {
+            return new double[] { 0.10, 0.55 };
+        }
+        return new double[] { v[0], v[1] };
     }
 
-    @JsonIgnore
-    public void setSplitPositions(String key, double[] positions) {
-        if (runtimeSplitPositions == null) runtimeSplitPositions = new HashMap<>();
-        runtimeSplitPositions.put(key, positions);
+    /**
+     * 設定三欄 SplitPane 分隔位置。
+     * 故意不呼叫 save()——由呼叫端負責 debounce 寫磁碟，
+     * 與 setNoteHeight(int) 模式一致。
+     */
+    public void setSplitPositions(double[] positions) {
+        if (positions == null || positions.length != 2) return;
+        this.splitPositions = new double[] { positions[0], positions[1] };
     }
 
     /** 是否已設定備份資料夾 */

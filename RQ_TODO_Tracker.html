@@ -3478,9 +3478,11 @@ function renderDiskStatus(forceState) {
 const BACKUP_DB_NAME    = 'rqtracker';
 const BACKUP_STORE_NAME = 'config';
 const BACKUP_HANDLE_KEY = 'backupDirHandle';
-const BACKUP_DATE_KEY   = 'rq_backup_last_date';
-const BACKUP_TIME_KEY   = 'rq_backup_last_time';
-const BACKUP_DAYS       = 7;
+const BACKUP_TIME_KEY    = 'rq_backup_last_time';
+const BACKUP_DAYS        = 7;
+const BACKUP_RECENT_MAX  = 50;
+const BACKUP_INTERVAL_MS = 6 * 60 * 1000;
+let   _backupIntervalId  = null;
 
 function openBackupDB() {
   return new Promise((resolve, reject) => {
@@ -3513,33 +3515,94 @@ async function saveBackupHandle(handle) {
   });
 }
 
+function _tsNow() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+function _parseBackupName(name) {
+  let m = name.match(/^RQ_backup_(\d{8})_(\d{6})\.json$/);
+  if (m) {
+    const ds = m[1], ts = m[2];
+    return {
+      name,
+      date: new Date(+ds.slice(0,4), +ds.slice(4,6)-1, +ds.slice(6,8), +ts.slice(0,2), +ts.slice(2,4), +ts.slice(4,6)),
+      dateStr: ds
+    };
+  }
+  m = name.match(/^RQ_backup_(\d{8})\.json$/);
+  if (m) {
+    const ds = m[1];
+    return {
+      name,
+      date: new Date(+ds.slice(0,4), +ds.slice(4,6)-1, +ds.slice(6,8), 0, 0, 0),
+      dateStr: ds
+    };
+  }
+  return null;
+}
+
+function startAutoBackupInterval() {
+  if (_backupIntervalId) return;
+  _backupIntervalId = setInterval(async () => {
+    const h = await getBackupHandle();
+    if (!h) return;
+    try {
+      const p = await h.queryPermission({ mode: 'readwrite' });
+      if (p === 'granted') await doBackup(h);
+      else renderBackupStatus('reauth');
+    } catch {}
+  }, BACKUP_INTERVAL_MS);
+}
+
 async function doBackup(dirHandle) {
-  const td   = todayDate();
+  const ts   = _tsNow();
   const json = JSON.stringify(getAllData(), null, 2);
 
-  // 寫入今日備份
-  const fileName   = `RQ_backup_${td}.json`;
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+  // 寫入本次備份
+  const fileHandle = await dirHandle.getFileHandle(`RQ_backup_${ts}.json`, { create: true });
   const writable   = await fileHandle.createWritable();
   await writable.write(json);
   await writable.close();
 
-  // 清除 7 天前舊備份
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - BACKUP_DAYS);
-  const cutoffStr = cutoff.toISOString().slice(0,10).replace(/-/g,''); // YYYYMMDD
-
+  // 收集所有備份檔並依時間排序（舊→新）
+  const now      = new Date();
+  const cut24h   = new Date(now - 24 * 60 * 60 * 1000);
+  const cut7d    = new Date(now - BACKUP_DAYS * 24 * 60 * 60 * 1000);
+  const allFiles = [];
   for await (const [name] of dirHandle.entries()) {
-    const m = name.match(/^RQ_backup_(\d{8})\.json$/);
-    if (m && m[1] < cutoffStr) {
-      try { await dirHandle.removeEntry(name); } catch {}
+    const parsed = _parseBackupName(name);
+    if (parsed) allFiles.push(parsed);
+  }
+  allFiles.sort((a, b) => a.date - b.date);
+
+  const toKeep = new Set();
+
+  // 24 小時內：保留最近 50 筆
+  allFiles.filter(f => f.date >= cut24h)
+          .slice(-BACKUP_RECENT_MAX)
+          .forEach(f => toKeep.add(f.name));
+
+  // 7 天內但超過 24 小時：每天只保留最早一筆
+  const seenDays = new Set();
+  for (const f of allFiles) {
+    if (f.date < cut24h && f.date >= cut7d && !seenDays.has(f.dateStr)) {
+      seenDays.add(f.dateStr);
+      toKeep.add(f.name);
+    }
+  }
+
+  // 刪除不保留的檔案（含 7 天前的舊檔）
+  for (const f of allFiles) {
+    if (!toKeep.has(f.name)) {
+      try { await dirHandle.removeEntry(f.name); } catch {}
     }
   }
 
   // 記錄備份時間
-  const now = new Date().toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
-  localStorage.setItem(BACKUP_DATE_KEY, td);
-  localStorage.setItem(BACKUP_TIME_KEY, now);
+  const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+  localStorage.setItem(BACKUP_TIME_KEY, JSON.stringify({ date: todayDate(), time: timeStr }));
   renderBackupStatus();
   showSaveToast('✓ 備份完成');
 }
@@ -3552,7 +3615,7 @@ async function setupBackupDir() {
   try {
     const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'rq-backup' });
     await saveBackupHandle(dirHandle);
-    localStorage.removeItem(BACKUP_DATE_KEY); // 強制今日立即備份
+    startAutoBackupInterval();
     await doBackup(dirHandle);
   } catch (e) {
     if (e.name !== 'AbortError') showSaveToast('✗ 設定失敗：' + e.message);
@@ -3563,15 +3626,12 @@ async function autoBackupOnLoad() {
   const handle = await getBackupHandle();
   if (!handle) { renderBackupStatus(); return; }
 
-  const td = todayDate();
-  if (localStorage.getItem(BACKUP_DATE_KEY) === td) { renderBackupStatus(); return; }
-
+  startAutoBackupInterval();
   try {
     const perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'granted') {
       await doBackup(handle);
     } else {
-      // 需要使用者手勢才能重新申請，標示警示
       renderBackupStatus('reauth');
     }
   } catch { renderBackupStatus('reauth'); }
@@ -3591,22 +3651,20 @@ function renderBackupStatus(forceState) {
     return;
   }
 
-  const td       = todayDate();
-  const lastDate = localStorage.getItem(BACKUP_DATE_KEY);
-  const lastTime = localStorage.getItem(BACKUP_TIME_KEY);
-
-  if (!lastDate) {
+  const stored = localStorage.getItem(BACKUP_TIME_KEY);
+  if (!stored) {
     getBackupHandle().then(h => {
       if (!h) setStatus('備份未設定', '');
-      else     setStatus('⚠ 今日尚未備份', 'warn');
+      else     setStatus('⚠ 尚未備份', 'warn');
     });
     return;
   }
 
-  if (lastDate === td) {
-    setStatus(`✓ 今日已備份 ${lastTime || ''}`, 'ok');
+  const { date, time } = JSON.parse(stored);
+  if (date === todayDate()) {
+    setStatus(`✓ 今日已備份 ${time}`, 'ok');
   } else {
-    setStatus('⚠ 今日尚未備份', 'warn');
+    setStatus(`⚠ 最後備份 ${date.slice(4,6)}/${date.slice(6,8)} ${time}`, 'warn');
   }
 }
 

@@ -85,18 +85,28 @@ public class DiskScanService {
     }
 
     /**
-     * 自動打勾：state=FILE 且尚未勾選 → 勾選並記錄時間戳。
+     * 自動打勾：
+     * 1) 1:1 規則 — 該任務 state=FILE 且尚未勾選 → 勾選並記錄時間戳。
+     * 2) 跨欄連動 — 依交付給客戶（右欄）的既有/新勾選狀態回填左欄開發流程。
      *
      * @return 是否有任何任務被自動打勾（需要通知 UI 刷新）
      */
     public boolean autoCheck(RQData rq, Map<String, TaskResult> results) {
+        if (rq == null || results == null) return false;
+        String ts = DateTimeUtils.nowZhTW();
         boolean anyChecked = false;
+
+        // (1) 1:1 規則
         for (Map.Entry<String, TaskResult> e : results.entrySet()) {
             if (e.getValue().state() == ScanState.FILE && !rq.isChecked(e.getKey())) {
-                rq.check(e.getKey(), DateTimeUtils.nowZhTW());
+                rq.check(e.getKey(), ts);
                 anyChecked = true;
             }
         }
+
+        // (2) 跨欄連動（包含本次掃描剛勾選與先前已手動勾選的交付物）
+        anyChecked |= TaskCascadeService.applyDeliveryToDevelopment(rq, ts);
+
         return anyChecked;
     }
 

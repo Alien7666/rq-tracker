@@ -2,11 +2,14 @@ package com.rqtracker.ui.component;
 
 import com.rqtracker.util.DialogHelper;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
@@ -68,8 +71,17 @@ public class ConfirmDialog {
         DialogHelper.applyTheme(scene, ConfirmDialog.class);
         dialog.setScene(scene);
 
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                dialog.close(); e.consume();
+            } else if (e.getCode() == KeyCode.ENTER) {
+                dialog.close(); onConfirm.run(); e.consume();
+            }
+        });
+
         if (onStageReady != null) onStageReady.accept(dialog);
         dialog.show();
+        Platform.runLater(confirmBtn::requestFocus);
     }
 
     public static void confirmDelete(Window owner, String targetName, Runnable onConfirm) {

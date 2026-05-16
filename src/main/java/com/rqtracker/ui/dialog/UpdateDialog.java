@@ -13,6 +13,8 @@ import javafx.util.Duration;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -99,6 +101,10 @@ public class UpdateDialog {
         dialog.setScene(scene);
         DialogHelper.makeMovable(dialog, modalHeader);
 
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) { cancelAndClose(); e.consume(); }
+        });
+
         dialog.setOnCloseRequest(e -> cancelAndClose());
     }
 
@@ -106,6 +112,7 @@ public class UpdateDialog {
 
     public void show() {
         dialog.show();
+        Platform.runLater(dialog::requestFocus);
         showState(State.CHECKING);
         startCheck();
     }

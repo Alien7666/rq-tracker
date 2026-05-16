@@ -6,10 +6,13 @@ import com.rqtracker.service.DataStore;
 import com.rqtracker.util.ClipboardUtils;
 import com.rqtracker.util.DialogHelper;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -121,11 +124,21 @@ public class VerFilesDialog {
         dialog.setScene(scene);
         DialogHelper.makeMovable(dialog, modalHeader);
         DialogHelper.makeResizable(dialog, modal);
+
+        // TextArea 需保留 Enter 換行，僅攔截 Esc
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                dialog.close(); e.consume();
+            }
+        });
     }
 
     public void setOnSaved(Runnable onSaved) { this.onSaved = onSaved; }
 
-    public void show() { dialog.show(); }
+    public void show() {
+        dialog.show();
+        Platform.runLater(dialog::requestFocus);
+    }
     public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────
@@ -203,7 +216,17 @@ public class VerFilesDialog {
         outputStage.setScene(scene2);
         DialogHelper.makeMovable(outputStage, hdr);
         DialogHelper.makeResizable(outputStage, modal2);
+
+        scene2.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                outputStage.close(); e.consume();
+            } else if (e.getCode() == KeyCode.ENTER) {
+                ClipboardUtils.copyText(content); e.consume();
+            }
+        });
+
         outputStage.show();
+        Platform.runLater(outputStage::requestFocus);
     }
 
 }

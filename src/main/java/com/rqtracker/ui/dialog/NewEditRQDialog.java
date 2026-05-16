@@ -3,10 +3,13 @@ package com.rqtracker.ui.dialog;
 import com.rqtracker.model.RQData;
 import com.rqtracker.model.RQVersion;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import com.rqtracker.util.DialogHelper;
 
@@ -169,11 +172,22 @@ public class NewEditRQDialog {
         dialog.setScene(scene);
         DialogHelper.makeMovable(dialog, modalHeader);
         DialogHelper.makeResizable(dialog, modal);
+
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                dialog.close(); e.consume();
+            } else if (e.getCode() == KeyCode.ENTER) {
+                handleSubmit(); e.consume();
+            }
+        });
     }
 
     public void setOnSubmit(Consumer<Result> handler) { this.onSubmit = handler; }
 
-    public void show() { dialog.show(); }
+    public void show() {
+        dialog.show();
+        Platform.runLater(dialog::requestFocus);
+    }
     public Stage getStage() { return dialog; }
 
     // ──────────────────────────────────────────────────────────────

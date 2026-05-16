@@ -10,68 +10,59 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 每日自動備份服務（對應 HTML 的 autoBackupOnLoad / doBackup）。
+ * 自動備份服務（每 6 分鐘執行一次）。
  *
  * 備份邏輯：
- * 1. 啟動時判斷今日是否已備份（AppConfig.lastBackupDate == today）
- * 2. 若未備份且 backupDir 有效 → 寫入 RQ_backup_{YYYYMMDD}.json
- * 3. 刪除超過 7 天的舊備份
- * 4. 更新 AppConfig.lastBackupDate / lastBackupTime
+ * 1. 寫入 RQ_backup_{yyyyMMdd_HHmmss}.json
+ * 2. 清理規則：
+ *    - 24 小時內：保留最近 50 筆
+ *    - 超過 24 小時、7 天內：每天保留最早一筆
+ *    - 超過 7 天：全部刪除
+ * 3. 更新 AppConfig.lastBackupDate / lastBackupTime
  */
 public final class BackupService {
 
     private static final Logger LOG = Logger.getLogger(BackupService.class.getName());
 
-    /** 保留備份天數 */
-    private static final int BACKUP_DAYS = 7;
+    private static final int BACKUP_DAYS       = 7;
+    private static final int BACKUP_RECENT_MAX = 50;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
         .enable(SerializationFeature.INDENT_OUTPUT);
 
-    private static final Pattern BACKUP_FILE_PAT =
+    private static final Pattern BACKUP_NEW_PAT =
+        Pattern.compile("^RQ_backup_(\\d{8})_(\\d{6})\\.json$");
+    private static final Pattern BACKUP_OLD_PAT =
         Pattern.compile("^RQ_backup_(\\d{8})\\.json$");
+
+    private static final DateTimeFormatter DT_FMT =
+        DateTimeFormatter.ofPattern("yyyyMMdd HHmmss");
 
     private BackupService() {}
 
+    private record BackupFile(Path path, LocalDateTime dateTime, String dateStr) {}
+
     // ──────────────────────────────────────────────────────────────
 
     /**
-     * 執行備份（應在背景執行緒呼叫）。
-     * 若 backupDir 未設定或今日已備份，直接回傳 false。
-     *
-     * @return true = 備份成功；false = 無需備份或失敗
-     */
-    public static boolean runIfNeeded(DataStore dataStore, AppConfig appConfig) {
-        if (!appConfig.hasBackupDir()) {
-            LOG.fine("備份資料夾未設定，跳過備份");
-            return false;
-        }
-
-        String today = DateTimeUtils.todayBackupDate();
-        if (today.equals(appConfig.getLastBackupDate())) {
-            LOG.fine("今日已備份（" + appConfig.getLastBackupDate() + "），跳過");
-            return false;
-        }
-
-        return doBackup(dataStore, appConfig, today);
-    }
-
-    /**
-     * 強制立即備份（不管今日是否已備份）。
+     * 立即執行備份。若 backupDir 未設定則回傳 false。
      */
     public static boolean runNow(DataStore dataStore, AppConfig appConfig) {
         if (!appConfig.hasBackupDir()) return false;
-        return doBackup(dataStore, appConfig, DateTimeUtils.todayBackupDate());
+        return doBackup(dataStore, appConfig);
     }
 
     // ──────────────────────────────────────────────────────────────
 
-    private static boolean doBackup(DataStore dataStore, AppConfig appConfig, String today) {
+    private static boolean doBackup(DataStore dataStore, AppConfig appConfig) {
         Path backupDir = Paths.get(appConfig.getBackupDir());
         try {
             Files.createDirectories(backupDir);
@@ -80,9 +71,8 @@ public final class BackupService {
             return false;
         }
 
-        // 寫入今日備份
-        String filename = "RQ_backup_" + today + ".json";
-        Path   target   = backupDir.resolve(filename);
+        String ts     = DateTimeUtils.nowBackupTimestamp(); // yyyyMMdd_HHmmss
+        Path   target = backupDir.resolve("RQ_backup_" + ts + ".json");
 
         AppData snapshot = dataStore.exportAll();
         snapshot.setSavedAt(DateTimeUtils.nowIso());
@@ -97,43 +87,86 @@ public final class BackupService {
             return false;
         }
 
-        // 刪除超過 7 天的舊備份
-        purgeOldBackups(backupDir, today);
+        purgeBackups(backupDir);
 
-        // 記錄備份日期 / 時間
-        appConfig.setLastBackupDate(today);
-        appConfig.setLastBackupTime(DateTimeUtils.nowBackupTime());
-        // AppConfig.setLastBackupDate 和 setLastBackupTime 內部各自呼叫 save()，
-        // 為避免重複 IO，直接設定欄位後統一 save：
+        // 記錄備份日期與時間（yyyyMMdd → HH:mm）
+        String dateStr = ts.substring(0, 8);
+        String timeStr = ts.substring(9, 11) + ":" + ts.substring(11, 13);
+        appConfig.setLastBackupDate(dateStr);
+        appConfig.setLastBackupTime(timeStr);
         appConfig.save();
 
         LOG.info("備份完成：" + target);
         return true;
     }
 
-    private static void purgeOldBackups(Path backupDir, String today) {
-        // 計算 7 天前的日期字串（YYYYMMDD 可直接字串比較）
-        long cutoffEpoch = java.time.LocalDate.now()
-            .minusDays(BACKUP_DAYS)
-            .toEpochDay();
-        String cutoff = java.time.LocalDate.ofEpochDay(cutoffEpoch)
-            .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE); // YYYYMMDD
+    private static void purgeBackups(Path backupDir) {
+        LocalDateTime now    = LocalDateTime.now();
+        LocalDateTime cut24h = now.minusHours(24);
+        LocalDateTime cut7d  = now.minusDays(BACKUP_DAYS);
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(backupDir, "RQ_backup_*.json")) {
-            for (Path file : stream) {
-                Matcher m = BACKUP_FILE_PAT.matcher(file.getFileName().toString());
-                if (m.matches() && m.group(1).compareTo(cutoff) < 0) {
-                    try {
-                        Files.delete(file);
-                        LOG.info("已刪除舊備份：" + file.getFileName());
-                    } catch (IOException e) {
-                        LOG.warning("刪除舊備份失敗：" + file.getFileName() + " — " + e.getMessage());
-                    }
+        List<BackupFile> all = collectBackupFiles(backupDir);
+        all.sort(Comparator.comparing(BackupFile::dateTime));
+
+        Set<Path> toKeep = new HashSet<>();
+
+        // 24 小時內：保留最近 50 筆
+        List<BackupFile> recent = all.stream()
+            .filter(f -> f.dateTime().isAfter(cut24h))
+            .toList();
+        recent.stream()
+            .skip(Math.max(0L, recent.size() - BACKUP_RECENT_MAX))
+            .forEach(f -> toKeep.add(f.path()));
+
+        // 7 天內但超過 24 小時：每天只保留最早一筆
+        Set<String> seenDays = new HashSet<>();
+        for (BackupFile f : all) {
+            if (!f.dateTime().isAfter(cut24h) && f.dateTime().isAfter(cut7d)) {
+                if (seenDays.add(f.dateStr())) {
+                    toKeep.add(f.path());
                 }
             }
-        } catch (IOException e) {
-            LOG.warning("清理舊備份時出錯：" + e.getMessage());
         }
+
+        // 刪除其餘（含超過 7 天的舊檔）
+        for (BackupFile f : all) {
+            if (!toKeep.contains(f.path())) {
+                try {
+                    Files.delete(f.path());
+                    LOG.info("已刪除備份：" + f.path().getFileName());
+                } catch (IOException e) {
+                    LOG.warning("刪除備份失敗：" + f.path().getFileName() + " — " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private static List<BackupFile> collectBackupFiles(Path backupDir) {
+        List<BackupFile> result = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(backupDir, "RQ_backup_*.json")) {
+            for (Path p : stream) {
+                BackupFile bf = parseBackupFile(p);
+                if (bf != null) result.add(bf);
+            }
+        } catch (IOException e) {
+            LOG.warning("讀取備份清單失敗：" + e.getMessage());
+        }
+        return result;
+    }
+
+    private static BackupFile parseBackupFile(Path p) {
+        String name = p.getFileName().toString();
+        Matcher m = BACKUP_NEW_PAT.matcher(name);
+        if (m.matches()) {
+            LocalDateTime dt = LocalDateTime.parse(m.group(1) + " " + m.group(2), DT_FMT);
+            return new BackupFile(p, dt, m.group(1));
+        }
+        m = BACKUP_OLD_PAT.matcher(name);
+        if (m.matches()) {
+            LocalDateTime dt = LocalDateTime.parse(m.group(1) + " 000000", DT_FMT);
+            return new BackupFile(p, dt, m.group(1));
+        }
+        return null;
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -150,9 +183,6 @@ public final class BackupService {
             : BackupStatus.NOT_TODAY;
     }
 
-    /**
-     * 取得給 Header 顯示的簡短狀態文字。
-     */
     public static String getStatusText(AppConfig appConfig) {
         return switch (getStatus(appConfig)) {
             case NOT_CONFIGURED -> "備份：未設定";
