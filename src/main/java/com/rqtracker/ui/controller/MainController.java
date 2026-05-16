@@ -24,6 +24,7 @@ import com.rqtracker.ui.dialog.HistoryDialog;
 import com.rqtracker.ui.dialog.NewEditRQDialog;
 import com.rqtracker.ui.dialog.SettingsDialog;
 import com.rqtracker.ui.dialog.UpdateDialog;
+import com.rqtracker.util.ClipboardUtils;
 import com.rqtracker.util.DateTimeUtils;
 import com.rqtracker.util.PathUtils;
 
@@ -75,6 +76,7 @@ public class MainController {
     private HBox  rqHeader;
     private Label rqHeaderTitle;
     private Label rqHeaderSub;
+    private Button rqCopyProjectBtn;
     private ProgressBar rqHeaderBar;
     private Label rqHeaderPct;
     private Button rqFolderBtn;
@@ -209,7 +211,23 @@ public class MainController {
         rqHeaderSub = new Label();
         rqHeaderSub.getStyleClass().add("rq-header-sub");
 
-        VBox titleBox = new VBox(2, rqHeaderTitle, rqHeaderSub);
+        rqCopyProjectBtn = new Button("⧉");
+        rqCopyProjectBtn.getStyleClass().addAll("copy-btn", "rq-header-copy-btn");
+        rqCopyProjectBtn.setTooltip(new Tooltip("複製專案代號"));
+        rqCopyProjectBtn.setVisible(false);
+        rqCopyProjectBtn.setManaged(false);
+        rqCopyProjectBtn.setOnAction(e -> {
+            RQData rq = activeRqId != null ? dataStore.getRQ(activeRqId) : null;
+            String projectNum = rq != null ? rq.getProjectNum() : null;
+            if (projectNum == null || projectNum.isBlank()) return;
+            ClipboardUtils.copyText(projectNum);
+            showToast("✓ 已複製專案代號");
+        });
+
+        HBox projectRow = new HBox(4, rqHeaderSub, rqCopyProjectBtn);
+        projectRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox titleBox = new VBox(2, rqHeaderTitle, projectRow);
         titleBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(titleBox, Priority.ALWAYS);
         titleBox.setMaxWidth(Double.MAX_VALUE);
@@ -253,7 +271,11 @@ public class MainController {
 
     private void updateRQHeader(RQData rq) {
         rqHeaderTitle.setText(rq.getId());
-        rqHeaderSub.setText(rq.getProjectNum() != null ? "專案：" + rq.getProjectNum() : "");
+        String projectNum = rq.getProjectNum();
+        boolean hasProject = projectNum != null && !projectNum.isBlank();
+        rqHeaderSub.setText(hasProject ? "專案：" + projectNum : "");
+        rqCopyProjectBtn.setVisible(hasProject);
+        rqCopyProjectBtn.setManaged(hasProject);
 
         int pct = ProgressCalc.calcProgress(rq).percent();
         rqHeaderBar.setProgress(pct / 100.0);

@@ -1423,6 +1423,16 @@
     -fx-text-fill: -rq-text-muted;
     -fx-font-size: 12px;
 }
+.rq-header-copy-btn {
+    -fx-padding: 0 4;
+    -fx-font-size: 11px;
+    -fx-min-width: 18;
+    -fx-pref-width: 18;
+    -fx-max-width: 18;
+    -fx-min-height: 18;
+    -fx-pref-height: 18;
+    -fx-max-height: 18;
+}
 .rq-header-bar {
     -fx-pref-height: 11;
     -fx-background-radius: 6;
