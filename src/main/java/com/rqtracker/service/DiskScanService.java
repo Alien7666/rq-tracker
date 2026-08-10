@@ -219,7 +219,7 @@ public class DiskScanService {
         if (rq.getVersions() != null) {
             for (int i = 0; i < rq.getVersions().size(); i++) {
                 String vName = rq.getVersions().get(i).getName();
-                all.addAll(TaskFactory.versionDevTasks(i));
+                all.addAll(TaskFactory.versionDevTasks(i, rq));
                 all.addAll(TaskFactory.versionDeliverables(i, rq, vName, dlRoot));
                 all.addAll(TaskFactory.versionSVNTasks(i, vName, rq, svnRoot));
             }

@@ -1,42 +1,54 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   RQ Tracker — 莫蘭迪石板藍灰主題 v2
+   RQ Tracker — Material 3 / Fluent 風主題 (Cool Teal accent, Dark+Light)
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── 00. 全域 CSS 自訂屬性 ────────────────────────────────────────────────── */
 .root {
-    /* 背景層次（4 層） */
-    -rq-bg:            #1a1f26;
-    -rq-surface:       #242b34;
-    -rq-surface2:      #1e242d;
-    -rq-surface3:      #2c3441;   /* hover 用 */
+    /* ===== Dark 預設 (Material 3 surface tonal palette) ===== */
+    -rq-bg:            #0F141A;   /* surface-dim */
+    -rq-surface:       #161D26;   /* surface */
+    -rq-surface2:      #1B232E;   /* surface-container-low */
+    -rq-surface3:      #232C39;   /* surface-container (hover) */
+    -rq-surface4:      #2A3441;   /* surface-container-high */
 
-    /* 文字層次（WCAG AA 合規） */
-    -rq-text:          #e2e8f2;   /* 對比 bg ≈ 12.4:1 */
-    -rq-text-muted:    #a8b8cc;   /* 對比 surface ≈ 5.3:1 ✓ */
-    -rq-text-dim:      #6e85a0;   /* 輔助文字，caption only */
+    -rq-text:          #E6EDF6;   /* on-surface */
+    -rq-text-muted:    #A9B6C7;   /* on-surface-variant */
+    -rq-text-dim:      #6E7E94;   /* on-surface-low */
 
-    /* 邊框 */
-    -rq-border:        #3a4a5e;
-    -rq-border-dark:   #4d5f75;
+    -rq-border:        #2A3441;   /* outline-variant */
+    -rq-border-dark:   #3D4A5C;   /* outline */
 
-    /* 語義色系 */
-    -rq-accent:        #5b8fac;
-    -rq-accent-hover:  #7aaec8;
-    -rq-accent-light:  #5b8fac22;
-    -rq-accent-muted:  #5b8fac44;
+    /* Primary: cool teal */
+    -rq-accent:        #2DD4BF;
+    -rq-accent-hover:  #5EEAD4;
+    -rq-accent-light:  #2DD4BF22;
+    -rq-accent-muted:  #2DD4BF44;
+    -rq-on-accent:     #0A2A26;   /* text on primary */
 
-    -rq-success:       #5a9e78;
-    -rq-success-hover: #73b892;
-    -rq-success-light: #5a9e7820;
+    -rq-success:       #34D399;
+    -rq-success-hover: #6EE7B7;
+    -rq-success-light: #34D39920;
+    -rq-on-success:    #0A2618;
 
-    -rq-warn:          #c49a5e;
-    -rq-warn-light:    #c49a5e1a;
+    -rq-warn:          #FBBF24;
+    -rq-warn-hover:    #FCD34D;
+    -rq-warn-light:    #FBBF241F;
+    -rq-on-warn:       #2A1F00;
 
-    -rq-danger:        #b86a6a;
-    -rq-danger-light:  #b86a6a20;
+    -rq-danger:        #F87171;
+    -rq-danger-hover:  #FCA5A5;
+    -rq-danger-light:  #F8717120;
+    -rq-on-danger:     #FFFFFF;
 
-    -rq-optional:      #7d88c0;
-    -rq-optional-light:#7d88c01a;
+    -rq-optional:      #A78BFA;
+    -rq-optional-light:#A78BFA1F;
+
+    /* progress track (Dark) — 比 surface2 略深以製造凹陷感 */
+    -rq-track:         #10161E;
+    /* glass overlay 顏色 */
+    -rq-overlay:       rgba(8, 12, 18, 0.55);
+    /* drop shadow base */
+    -rq-shadow:        rgba(0, 0, 0, 0.55);
 
     /* 字型尺寸層次 */
     -rq-font-h1:      20px;
@@ -49,8 +61,52 @@
 
     -fx-background-color: -rq-bg;
     -fx-text-fill: -rq-text;
-    -fx-font-family: "Microsoft JhengHei UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -fx-font-family: "Segoe UI Variable", "Microsoft JhengHei UI", "Noto Sans TC", "Microsoft JhengHei", "Segoe UI", sans-serif;
     -fx-font-size: 14px;
+}
+
+/* ===== Light 主題覆蓋 (套用於 Scene root 加 .theme-light) ===== */
+.theme-light, .root.theme-light {
+    -rq-bg:            #F4F6FA;
+    -rq-surface:       #FFFFFF;
+    -rq-surface2:      #F0F3F8;
+    -rq-surface3:      #E4EAF2;
+    -rq-surface4:      #D8DFE9;
+
+    -rq-text:          #0F1620;
+    -rq-text-muted:    #3F4A5C;
+    -rq-text-dim:      #6B7589;
+
+    -rq-border:        #D8DEE9;
+    -rq-border-dark:   #B8C2D0;
+
+    -rq-accent:        #0D9488;
+    -rq-accent-hover:  #14B8A6;
+    -rq-accent-light:  #0D948818;
+    -rq-accent-muted:  #0D948830;
+    -rq-on-accent:     #FFFFFF;
+
+    -rq-success:       #059669;
+    -rq-success-hover: #10B981;
+    -rq-success-light: #05966918;
+    -rq-on-success:    #FFFFFF;
+
+    -rq-warn:          #D97706;
+    -rq-warn-hover:    #F59E0B;
+    -rq-warn-light:    #D9770614;
+    -rq-on-warn:       #FFFFFF;
+
+    -rq-danger:        #DC2626;
+    -rq-danger-hover:  #EF4444;
+    -rq-danger-light:  #DC262614;
+    -rq-on-danger:     #FFFFFF;
+
+    -rq-optional:      #7C3AED;
+    -rq-optional-light:#7C3AED14;
+
+    -rq-track:         #E1E6EE;
+    -rq-overlay:       rgba(40, 50, 70, 0.30);
+    -rq-shadow:        rgba(15, 25, 40, 0.18);
 }
 
 /* ── 01. 應用程式根容器 ────────────────────────────────────────────────────── */
@@ -112,7 +168,7 @@
 }
 .btn-new-rq {
     -fx-background-color: -rq-accent;
-    -fx-text-fill: #0f1620;
+    -fx-text-fill: -rq-on-accent;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
     -fx-padding: 7 18;
@@ -324,7 +380,7 @@
 }
 .version-badge {
     -fx-background-color: -rq-accent;
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-on-accent;
     -fx-font-size: 13px;
     -fx-font-weight: bold;
     -fx-min-width: 30;
@@ -342,21 +398,19 @@
 }
 .version-prog-bar {
     -fx-pref-height: 12;
-    -fx-background-color: #1a2233;
+    -fx-background-color: -rq-track;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
 }
 .version-prog-bar .bar {
-    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
     -fx-background-radius: 6;
-    -fx-effect: dropshadow(gaussian, #4e8db0, 5, 0.4, 0, 0);
 }
 .version-prog-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
-    -fx-effect: dropshadow(gaussian, #4a9068, 5, 0.4, 0, 0);
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
 }
 .version-prog-bar .track {
-    -fx-background-color: #1a2233;
+    -fx-background-color: -rq-track;
     -fx-background-radius: 6;
 }
 .version-prog-text {
@@ -545,34 +599,32 @@
     -fx-text-fill: transparent;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 3, 0.3, 0, 0);
 }
-.file-dot.fs-file    { -fx-background-color: #34d472; }
-.file-dot.fs-partial { -fx-background-color: #f0ba1a; }
-.file-dot.fs-folder  { -fx-background-color: #6e88a0; }
-.file-dot.fs-none    { -fx-background-color: #3a4a5e; }
-.file-dot.fs-stale   { -fx-background-color: #9f7eea; }
+.file-dot.fs-file    { -fx-background-color: -rq-success; }
+.file-dot.fs-partial { -fx-background-color: -rq-warn; }
+.file-dot.fs-folder  { -fx-background-color: -rq-text-muted; }
+.file-dot.fs-none    { -fx-background-color: -rq-border-dark; }
+.file-dot.fs-stale   { -fx-background-color: -rq-optional; }
 .file-dot.fs-scan    { -fx-background-color: -rq-text-dim; }
 .file-dot.fs-unknown { -fx-background-color: -rq-border; }
 
 /* ── 09. 進度條 ─────────────────────────────────────────────────────────────*/
 .rq-progress-bar {
     -fx-accent: -rq-accent;
-    -fx-background-color: #1a2233;
+    -fx-background-color: -rq-track;
     -fx-border-radius: 7;
     -fx-background-radius: 7;
     -fx-border-color: transparent;
     -fx-pref-height: 14;
 }
 .rq-progress-bar .bar {
-    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
     -fx-background-radius: 7;
-    -fx-effect: dropshadow(gaussian, #4e8db0, 6, 0.5, 0, 0);
 }
 .rq-progress-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
-    -fx-effect: dropshadow(gaussian, #4a9068, 6, 0.5, 0, 0);
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
 }
 .rq-progress-bar .track {
-    -fx-background-color: #1a2233;
+    -fx-background-color: -rq-track;
     -fx-background-radius: 7;
 }
 
@@ -592,7 +644,7 @@
 }
 .btn-archive {
     -fx-background-color: -rq-success;
-    -fx-text-fill: #0f1e18;
+    -fx-text-fill: -rq-on-success;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
     -fx-padding: 6 18;
@@ -735,7 +787,7 @@
     -fx-background-radius: 7;
     -fx-padding: 9 22;
     -fx-cursor: hand;
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-on-accent;
     -fx-font-weight: bold;
 }
 
@@ -944,7 +996,7 @@
 /* ── 18. 按鈕 ───────────────────────────────────────────────────────────────*/
 .btn-primary {
     -fx-background-color: -rq-accent;
-    -fx-text-fill: #0f1620;
+    -fx-text-fill: -rq-on-accent;
     -fx-border-radius: 7;
     -fx-background-radius: 7;
     -fx-padding: 9 24;
@@ -974,7 +1026,7 @@
 }
 .btn-danger {
     -fx-background-color: -rq-danger;
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-on-danger;
     -fx-border-radius: 7;
     -fx-background-radius: 7;
     -fx-padding: 9 24;
@@ -987,7 +1039,7 @@
 }
 .btn-warn {
     -fx-background-color: -rq-warn;
-    -fx-text-fill: #0f1620;
+    -fx-text-fill: -rq-on-warn;
     -fx-border-radius: 7;
     -fx-background-radius: 7;
     -fx-padding: 9 24;
@@ -1265,7 +1317,7 @@
 }
 .btn-side-new {
     -fx-background-color: -rq-accent;
-    -fx-text-fill: #0f1620;
+    -fx-text-fill: -rq-on-accent;
     -fx-font-weight: bold;
     -fx-font-size: 13px;
     -fx-padding: 7 0;
@@ -1350,7 +1402,7 @@
     -fx-wrap-text: true;
 }
 .rq-list-item.active .rq-item-id {
-    -fx-text-fill: -rq-accent;
+    -fx-text-fill: -rq-text-dim;
 }
 .rq-item-pct {
     -fx-text-fill: -rq-text-dim;
@@ -1359,7 +1411,7 @@
     -fx-alignment: center-right;
 }
 .rq-list-item.active .rq-item-pct {
-    -fx-text-fill: -rq-accent;
+    -fx-text-fill: -rq-text-dim;
 }
 
 /* 迷你進度條（6px 高）— 必須覆蓋 modena 預設 track padding 才能顯示 */
@@ -1372,7 +1424,7 @@
     -fx-padding: 0;
 }
 .rq-item-bar .track {
-    -fx-background-color: #2a3545;
+    -fx-background-color: -rq-track;
     -fx-background-radius: 3;
     -fx-background-insets: 0;
     -fx-padding: 0;
@@ -1439,17 +1491,15 @@
     -fx-border-color: transparent;
 }
 .rq-header-bar .track {
-    -fx-background-color: #1a2233;
+    -fx-background-color: -rq-track;
     -fx-background-radius: 6;
 }
 .rq-header-bar .bar {
-    -fx-background-color: linear-gradient(to right, #4e8db0, #8ec8e8);
+    -fx-background-color: linear-gradient(to right, -rq-accent, -rq-accent-hover);
     -fx-background-radius: 6;
-    -fx-effect: dropshadow(gaussian, #4e8db0, 6, 0.5, 0, 0);
 }
 .rq-header-bar.done .bar {
-    -fx-background-color: linear-gradient(to right, #4a9068, #70c498);
-    -fx-effect: dropshadow(gaussian, #4a9068, 6, 0.5, 0, 0);
+    -fx-background-color: linear-gradient(to right, -rq-success, -rq-success-hover);
 }
 .rq-header-pct {
     -fx-text-fill: -rq-text;
@@ -1522,7 +1572,7 @@
     -fx-padding: 7 16;
 }
 .menu-item .label {
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-text;
     -fx-font-size: 13px;
 }
 .menu-item:focused, .menu-item:hover {
@@ -1530,7 +1580,7 @@
     -fx-background-radius: 6;
 }
 .menu-item:focused .label, .menu-item:hover .label {
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-text;
 }
 .context-menu .separator .line {
     -fx-border-color: -rq-border;
@@ -1540,7 +1590,7 @@
 /* ── 更新徽章 ─────────────────────────────────────────────────── */
 .update-badge {
     -fx-background-color: -rq-accent;
-    -fx-text-fill: white;
+    -fx-text-fill: -rq-on-accent;
     -fx-font-size: 12px;
     -fx-padding: 6 12 6 12;
     -fx-cursor: hand;
@@ -1549,6 +1599,283 @@
 
 /* ── 毛玻璃遮罩（子視窗開啟時覆蓋主視窗） ──────────────────────── */
 .glass-overlay {
-    -fx-background-color: rgba(10, 14, 22, 0.48);
+    -fx-background-color: -rq-overlay;
     -fx-cursor: hand;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v3 Material 3 / Fluent 風格 polish — 在上面 v2 規則之後 override
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* === 一、形狀(shape) — M3 token：corner-extra-small/small/medium/large === */
+.btn-new-rq, .btn-side-new {
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-padding: 9 22;
+    -fx-font-weight: bold;
+}
+.btn-new-rq:hover, .btn-side-new:hover {
+    -fx-background-color: -rq-accent-hover;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 8, 0.18, 0, 2);
+}
+.btn-primary {
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-padding: 9 24;
+}
+.btn-primary:hover {
+    -fx-background-color: -rq-accent-hover;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 8, 0.18, 0, 2);
+}
+.btn-ghost {
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+}
+.btn-danger {
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+}
+.btn-warn {
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+}
+.btn-archive {
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-padding: 7 20;
+}
+
+/* M3 outlined / tonal button base for ghost */
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rq-text-muted;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1;
+}
+.btn-ghost:hover {
+    -fx-background-color: -rq-accent-light;
+    -fx-text-fill: -rq-accent;
+    -fx-border-color: -rq-accent;
+}
+
+/* === 二、卡片(card) — M3 elevated/outlined === */
+.section-card {
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: -rq-border;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 10, 0, 0, 2);
+}
+.section-card.type-flow {
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-accent;
+    -fx-border-width: 1 1 1 4;
+    -fx-background-radius: 14;
+}
+.section-card.type-delivery {
+    -fx-border-color: -rq-border -rq-border -rq-border -rq-warn;
+    -fx-border-width: 1 1 1 4;
+    -fx-background-radius: 14;
+}
+.section-header {
+    -fx-background-radius: 14 14 0 0;
+}
+.section-header:hover {
+    -fx-background-color: -rq-accent-light;
+}
+
+.version-card {
+    -fx-background-color: -rq-surface2;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: -rq-border;
+}
+.version-header {
+    -fx-background-radius: 12 12 0 0;
+}
+.version-header:hover {
+    -fx-background-color: -rq-accent-light;
+}
+
+/* === 三、進度條(progress) — M3 thin flat === */
+.rq-progress-bar, .version-prog-bar, .rq-header-bar {
+    -fx-effect: null;
+}
+.rq-progress-bar { -fx-pref-height: 8; -fx-background-radius: 4; }
+.rq-progress-bar .bar, .rq-progress-bar .track { -fx-background-radius: 4; }
+
+.version-prog-bar { -fx-pref-height: 8; -fx-background-radius: 4; }
+.version-prog-bar .bar, .version-prog-bar .track { -fx-background-radius: 4; }
+
+.rq-header-bar { -fx-pref-height: 8; -fx-background-radius: 4; }
+.rq-header-bar .bar, .rq-header-bar .track { -fx-background-radius: 4; }
+
+.rq-item-bar { -fx-pref-height: 4; -fx-min-height: 4; -fx-max-height: 4; }
+.rq-item-bar .bar, .rq-item-bar .track { -fx-background-radius: 2; }
+
+/* === 四、表單(input) — M3 filled 風 === */
+.form-input {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-background-color: -rq-surface3;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-padding: 11 14 9 14;
+}
+.form-input > .text-field-wrapper, .form-input .content {
+    -fx-background-color: -rq-surface3;
+}
+.form-input:focused {
+    -fx-background-color: -rq-surface3;
+    -fx-border-color: transparent transparent -rq-accent transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-effect: null;
+}
+
+/* === 五、Tab bar — M3 underline indicator === */
+.rq-tab {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+    -fx-text-fill: -rq-text-muted;
+}
+.rq-tab:hover {
+    -fx-background-color: -rq-accent-light;
+    -fx-border-color: transparent transparent -rq-accent-muted transparent;
+    -fx-text-fill: -rq-text;
+}
+.rq-tab.active {
+    -fx-background-color: -rq-accent-light;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent transparent -rq-accent transparent;
+    -fx-border-width: 0 0 3 0;
+    -fx-background-radius: 8 8 0 0;
+    -fx-text-fill: -rq-accent;
+    -fx-font-weight: bold;
+}
+.rq-tab.active .tab-progress {
+    -fx-background-color: -rq-accent;
+    -fx-text-fill: -rq-on-accent;
+}
+
+/* === 六、Modal/Dialog M3 elevation === */
+.modal, .confirm-box {
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 40, 0.10, 0, 14);
+}
+.modal-header { -fx-background-radius: 18 18 0 0; }
+.modal-footer { -fx-background-radius: 0 0 18 18; }
+.dialog-header { -fx-background-radius: 18 18 0 0; }
+.dialog-footer { -fx-background-radius: 0 0 18 18; }
+
+/* === 七、Toast — M3 snackbar === */
+.toast {
+    -fx-background-color: -rq-surface4;
+    -fx-background-insets: 0;
+    -fx-background-radius: 14;
+    -fx-border-color: -rq-border-dark;
+    -fx-border-width: 1;
+    -fx-padding: 12 22;
+    -fx-text-fill: -rq-text;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 24, 0.12, 0, 8);
+}
+
+/* === 八、Side panel === */
+.side-panel {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: -rq-border;
+}
+.side-brand {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: transparent transparent -rq-border transparent;
+}
+.brand-icon {
+    -fx-text-fill: -rq-accent;
+    -fx-font-size: 22px;
+}
+.side-toolbar {
+    -fx-background-color: -rq-surface;
+    -fx-border-color: transparent transparent -rq-border transparent;
+}
+.btn-side-tool {
+    -fx-background-color: -rq-surface3;
+    -fx-border-color: transparent;
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+}
+.btn-side-tool:hover {
+    -fx-background-color: -rq-accent-light;
+    -fx-text-fill: -rq-accent;
+    -fx-border-color: transparent;
+}
+
+/* RQ list item — M3 navigation drawer item */
+.rq-list-item {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 12 14;
+    -fx-background-radius: 0;
+}
+.rq-list-item:hover {
+    -fx-background-color: -rq-accent-light;
+}
+.rq-list-item.active {
+    -fx-background-color: -rq-accent-muted;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent transparent transparent -rq-accent;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 12 14 12 11;
+}
+.rq-list-item.active .rq-item-id {
+    -fx-text-fill: -rq-accent;
+    -fx-font-weight: bold;
+}
+.rq-list-item.active .rq-item-pct {
+    -fx-text-fill: -rq-accent;
+}
+
+/* === 九、Backup status / scan indicator === */
+.backup-status {
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-padding: 4 12;
+}
+
+/* === 十、Header === */
+.app-header, .rq-header {
+    -fx-background-color: -rq-surface;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 6, 0, 0, 1);
+}
+
+/* === 十一、捲軸 M3 風 === */
+.scroll-bar {
+    -fx-background-color: transparent;
+    -fx-pref-width: 10;
+    -fx-pref-height: 10;
+}
+.scroll-bar .thumb {
+    -fx-background-color: -rq-border-dark;
+    -fx-background-radius: 5;
+    -fx-background-insets: 2;
+}
+.scroll-bar .thumb:hover {
+    -fx-background-color: -rq-text-dim;
+}
+.scroll-bar .increment-button, .scroll-bar .decrement-button,
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-shape: null;
+}
+
+/* === 十二、Toolt ip M3 (plain) === */
+.tooltip {
+    -fx-background-color: -rq-surface4;
+    -fx-text-fill: -rq-text;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12;
+    -fx-font-size: 12px;
+    -fx-effect: dropshadow(gaussian, -rq-shadow, 12, 0.1, 0, 4);
 }

@@ -34,6 +34,7 @@ public final class DialogHelper {
             var css = caller.getResource("/css/rq-theme.css");
             if (css != null) scene.getStylesheets().add(css.toExternalForm());
         } catch (Exception ignored) {}
+        ThemeManager.registerScene(scene);
     }
 
     /**

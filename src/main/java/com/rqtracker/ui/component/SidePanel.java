@@ -24,6 +24,7 @@ public class SidePanel extends VBox {
 
     // ── ContextMenu items（由 MainController 設定） ──────────────────────────
     public final MenuItem menuSettings    = new MenuItem("⚙  路徑設定");
+    public final MenuItem menuToggleTheme = new MenuItem("◐  切換亮暗主題");
     public final MenuItem menuCheckUpdate = new MenuItem("⬆  檢查更新");
     public final MenuItem menuHistory     = new MenuItem("◷  已歸檔的 RQ");
     public final MenuItem menuImport      = new MenuItem("▼  匯入 RQ 資料");
@@ -62,6 +63,7 @@ public class SidePanel extends VBox {
 
         ContextMenu contextMenu = new ContextMenu(
             menuSettings,
+            menuToggleTheme,
             new SeparatorMenuItem(),
             menuCheckUpdate,
             new SeparatorMenuItem(),

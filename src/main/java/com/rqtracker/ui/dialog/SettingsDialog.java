@@ -1,13 +1,18 @@
 package com.rqtracker.ui.dialog;
 
+import com.rqtracker.model.VersionPreset;
 import com.rqtracker.service.AppConfig;
 import com.rqtracker.util.DialogHelper;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
@@ -19,8 +24,10 @@ import javafx.stage.Window;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class SettingsDialog {
 
@@ -31,6 +38,9 @@ public class SettingsDialog {
     private final TextField svnField;
     private final TextField backupField;
     private final TextField updateUrlField;
+
+    private final ObservableList<VersionPreset> versionPresetItems = FXCollections.observableArrayList();
+    private final TableView<VersionPreset> versionPresetTable = new TableView<>(versionPresetItems);
 
     private Runnable onSaved;
 
@@ -114,7 +124,11 @@ public class SettingsDialog {
             spacerH(12),
             buildUrlRow("🔗 更新伺服器網址",
                 "系統啟動時自動到此網址檢查是否有新版本。\n留空則停用自動更新檢查。",
-                updateUrlField)
+                updateUrlField),
+            spacerH(20),
+            buildGroupHeader("🏷️ 版本管理"),
+            spacerH(12),
+            buildVersionPresetSection()
         );
 
         // ── Footer ──────────────────────────────────────────────────
@@ -214,6 +228,93 @@ public class SettingsDialog {
         return new VBox(4, lbl, hintLbl, inputRow);
     }
 
+    @SuppressWarnings("unchecked")
+    private VBox buildVersionPresetSection() {
+        Label hint = new Label(
+            "新增 RQ 時下拉選單會列出這裡定義的版本。\n" +
+            "vid 為路徑變數識別碼（例：pstID）；SBOM 資料夾將用於 ZAP/SBOM 路徑（例：1_網路郵局中文版）。"
+        );
+        hint.getStyleClass().add("form-hint");
+        hint.setWrapText(true);
+
+        versionPresetItems.setAll(deepCopy(appConfig.getVersionPresets()));
+
+        TableColumn<VersionPreset, String> vidCol = new TableColumn<>("vid");
+        vidCol.setPrefWidth(120);
+        vidCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getVid(), "")));
+        vidCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        vidCol.setOnEditCommit(e -> e.getRowValue().setVid(e.getNewValue() == null ? "" : e.getNewValue().trim()));
+
+        TableColumn<VersionPreset, String> nameCol = new TableColumn<>("顯示名");
+        nameCol.setPrefWidth(160);
+        nameCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getDisplayName(), "")));
+        nameCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        nameCol.setOnEditCommit(e -> e.getRowValue().setDisplayName(e.getNewValue() == null ? "" : e.getNewValue().trim()));
+
+        TableColumn<VersionPreset, String> sbomCol = new TableColumn<>("SBOM/ZAP 資料夾");
+        sbomCol.setPrefWidth(200);
+        sbomCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getSbomFolder(), "")));
+        sbomCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        sbomCol.setOnEditCommit(e -> e.getRowValue().setSbomFolder(e.getNewValue() == null ? "" : e.getNewValue().trim()));
+
+        versionPresetTable.getColumns().setAll(vidCol, nameCol, sbomCol);
+        versionPresetTable.setEditable(true);
+        versionPresetTable.setPrefHeight(180);
+        versionPresetTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        versionPresetTable.setPlaceholder(new Label("尚未定義任何版本。點「＋ 新增版本」開始。"));
+
+        Button addBtn = new Button("＋ 新增版本");
+        addBtn.getStyleClass().add("btn-ghost");
+        addBtn.setOnAction(e -> {
+            VersionPreset p = new VersionPreset("", "", "");
+            versionPresetItems.add(p);
+            versionPresetTable.getSelectionModel().select(p);
+            versionPresetTable.edit(versionPresetItems.size() - 1, vidCol);
+        });
+
+        Button removeBtn = new Button("－ 移除選取");
+        removeBtn.getStyleClass().add("btn-ghost");
+        removeBtn.setOnAction(e -> {
+            VersionPreset sel = versionPresetTable.getSelectionModel().getSelectedItem();
+            if (sel != null) versionPresetItems.remove(sel);
+        });
+
+        Button resetBtn = new Button("還原預設");
+        resetBtn.getStyleClass().add("btn-ghost");
+        resetBtn.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "將以下列 5 筆中華郵政預設版本覆蓋現有清單，確定？\n" +
+                "pstID / pstEN / pstacce / pstsam / pstmail",
+                ButtonType.OK, ButtonType.CANCEL);
+            confirm.setHeaderText(null);
+            confirm.initOwner(dialog);
+            Optional<ButtonType> res = confirm.showAndWait();
+            if (res.isPresent() && res.get() == ButtonType.OK) {
+                versionPresetItems.setAll(
+                    new VersionPreset("pstID",   "網路郵局中文版",   "1_網路郵局中文版"),
+                    new VersionPreset("pstEN",   "網路郵局英文版",   "2_網路郵局英文版"),
+                    new VersionPreset("pstacce", "網路郵局友善專區", "3_網路郵局友善專區"),
+                    new VersionPreset("pstsam",  "網路郵局後台",     "4_網路郵局後台"),
+                    new VersionPreset("pstmail", "郵件查詢前台",     "8_郵件查詢前台")
+                );
+            }
+        });
+
+        HBox btnRow = new HBox(8, addBtn, removeBtn, resetBtn);
+        btnRow.setAlignment(Pos.CENTER_LEFT);
+
+        return new VBox(8, hint, versionPresetTable, btnRow);
+    }
+
+    private static List<VersionPreset> deepCopy(List<VersionPreset> src) {
+        List<VersionPreset> out = new ArrayList<>();
+        if (src == null) return out;
+        for (VersionPreset p : src) {
+            out.add(new VersionPreset(p.getVid(), p.getDisplayName(), p.getSbomFolder()));
+        }
+        return out;
+    }
+
     private VBox buildUrlRow(String label, String hint, TextField field) {
         Label lbl = new Label(label);
         lbl.getStyleClass().add("form-label");
@@ -274,10 +375,34 @@ public class SettingsDialog {
             if (res.isEmpty() || res.get() == ButtonType.CANCEL) return;
         }
 
+        // 驗證版本管理：vid 必填且不可重複
+        List<VersionPreset> cleaned = new ArrayList<>();
+        Set<String> seenVids = new HashSet<>();
+        for (VersionPreset p : versionPresetItems) {
+            String vid = p.getVid() == null ? "" : p.getVid().trim();
+            if (vid.isBlank()) continue;
+            String key = vid.toLowerCase();
+            if (!seenVids.add(key)) {
+                Alert err = new Alert(Alert.AlertType.ERROR,
+                    "版本管理中 vid「" + vid + "」重複，請修正後再儲存。",
+                    ButtonType.OK);
+                err.setHeaderText(null);
+                err.initOwner(dialog);
+                err.showAndWait();
+                return;
+            }
+            cleaned.add(new VersionPreset(
+                vid,
+                p.getDisplayName() == null ? "" : p.getDisplayName().trim(),
+                p.getSbomFolder() == null ? "" : p.getSbomFolder().trim()
+            ));
+        }
+
         if (!dl.isBlank())  appConfig.setDownloadsRoot(dl);
         if (!svn.isBlank()) appConfig.setSvnRoot(svn);
         appConfig.setBackupDir(bk.isBlank() ? null : bk);
         appConfig.setUpdateCheckUrl(updateUrlField.getText().trim());
+        appConfig.setVersionPresets(cleaned);
         appConfig.save();
 
         if (onSaved != null) onSaved.run();

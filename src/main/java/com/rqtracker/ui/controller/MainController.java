@@ -77,6 +77,7 @@ public class MainController {
     private Label rqHeaderTitle;
     private Label rqHeaderSub;
     private Button rqCopyProjectBtn;
+    private Button rqCopyTitleBtn;
     private ProgressBar rqHeaderBar;
     private Label rqHeaderPct;
     private Button rqFolderBtn;
@@ -211,23 +212,27 @@ public class MainController {
         rqHeaderSub = new Label();
         rqHeaderSub.getStyleClass().add("rq-header-sub");
 
+        rqCopyTitleBtn = new Button("⧉");
+        rqCopyTitleBtn.getStyleClass().addAll("copy-btn", "rq-header-copy-btn");
+        rqCopyTitleBtn.setTooltip(new Tooltip("複製「專案代號_RQ」(資料夾名稱格式)"));
+        rqCopyTitleBtn.setVisible(false);
+        rqCopyTitleBtn.setManaged(false);
+        rqCopyTitleBtn.setOnAction(e -> copyProjectFolderName());
+
         rqCopyProjectBtn = new Button("⧉");
         rqCopyProjectBtn.getStyleClass().addAll("copy-btn", "rq-header-copy-btn");
-        rqCopyProjectBtn.setTooltip(new Tooltip("複製專案代號"));
+        rqCopyProjectBtn.setTooltip(new Tooltip("複製「專案代號_RQ」(資料夾名稱格式)"));
         rqCopyProjectBtn.setVisible(false);
         rqCopyProjectBtn.setManaged(false);
-        rqCopyProjectBtn.setOnAction(e -> {
-            RQData rq = activeRqId != null ? dataStore.getRQ(activeRqId) : null;
-            String projectNum = rq != null ? rq.getProjectNum() : null;
-            if (projectNum == null || projectNum.isBlank()) return;
-            ClipboardUtils.copyText(projectNum);
-            showToast("✓ 已複製專案代號");
-        });
+        rqCopyProjectBtn.setOnAction(e -> copyProjectFolderName());
+
+        HBox titleRow = new HBox(4, rqHeaderTitle, rqCopyTitleBtn);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
 
         HBox projectRow = new HBox(4, rqHeaderSub, rqCopyProjectBtn);
         projectRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox titleBox = new VBox(2, rqHeaderTitle, projectRow);
+        VBox titleBox = new VBox(2, titleRow, projectRow);
         titleBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(titleBox, Priority.ALWAYS);
         titleBox.setMaxWidth(Double.MAX_VALUE);
@@ -269,13 +274,27 @@ public class MainController {
         return header;
     }
 
+    private void copyProjectFolderName() {
+        RQData rq = activeRqId != null ? dataStore.getRQ(activeRqId) : null;
+        if (rq == null) return;
+        String projectNum = rq.getProjectNum();
+        String id = rq.getId();
+        if (projectNum == null || projectNum.isBlank() || id == null || id.isBlank()) return;
+        String folderName = projectNum + "_" + PathUtils.winSafeName(id);
+        ClipboardUtils.copyText(folderName);
+        showToast("✓ 已複製：" + folderName);
+    }
+
     private void updateRQHeader(RQData rq) {
         rqHeaderTitle.setText(rq.getId());
         String projectNum = rq.getProjectNum();
         boolean hasProject = projectNum != null && !projectNum.isBlank();
+        boolean canCopyFolder = hasProject && rq.getId() != null && !rq.getId().isBlank();
         rqHeaderSub.setText(hasProject ? "專案：" + projectNum : "");
         rqCopyProjectBtn.setVisible(hasProject);
         rqCopyProjectBtn.setManaged(hasProject);
+        rqCopyTitleBtn.setVisible(canCopyFolder);
+        rqCopyTitleBtn.setManaged(canCopyFolder);
 
         int pct = ProgressCalc.calcProgress(rq).percent();
         rqHeaderBar.setProgress(pct / 100.0);
@@ -368,6 +387,7 @@ public class MainController {
             rq.setVersions(result.versionNames().stream()
                 .map(RQVersion::new)
                 .collect(Collectors.toCollection(ArrayList::new)));
+            rq.setBugFix(result.bugFix());
             rq.setCreatedAt(DateTimeUtils.nowIso());
 
             dataStore.saveRQ(rqId, rq);
@@ -391,6 +411,7 @@ public class MainController {
             existing.setVersions(result.versionNames().stream()
                 .map(RQVersion::new)
                 .collect(Collectors.toCollection(ArrayList::new)));
+            existing.setBugFix(result.bugFix());
             dataStore.saveRQ(rqId, existing);
             refreshSidePanel();
             renderRQ(rqId);
@@ -456,6 +477,11 @@ public class MainController {
             });
             dlg.show();
             showGlass(dlg.getStage());
+        });
+
+        sidePanel.menuToggleTheme.setOnAction(e -> {
+            com.rqtracker.util.ThemeManager.toggle();
+            showToast(com.rqtracker.util.ThemeManager.isLight() ? "☀ 已切換為淺色主題" : "☾ 已切換為深色主題");
         });
 
         sidePanel.menuHistory.setOnAction(e -> openHistoryDialog());
@@ -622,7 +648,7 @@ public class MainController {
         String svnRoot = appConfig.getSvnRoot();
 
         SectionTimestamp.update(rq,
-            i -> TaskFactory.versionDevTasks(i),
+            i -> TaskFactory.versionDevTasks(i, rq),
             i -> TaskFactory.versionSVNTasks(i, rq.getVersions().get(i).getName(), rq, svnRoot),
             i -> TaskFactory.versionDeliverables(i, rq, rq.getVersions().get(i).getName(), dlRoot),
             TaskFactory.finalDeliveryTasks(rq, dlRoot),
@@ -741,5 +767,6 @@ public class MainController {
         } catch (Exception e) {
             System.err.println("無法載入 CSS：" + e.getMessage());
         }
+        com.rqtracker.util.ThemeManager.registerScene(scene);
     }
 }

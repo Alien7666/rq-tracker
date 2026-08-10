@@ -63,6 +63,13 @@ public class RQData {
     /** 歸檔時間，只在歷史紀錄條目中存在，ISO 8601 格式 */
     private String archivedAt;
 
+    /**
+     * 是否為「修復問題」型 RQ（true）；預設 false 為「實現需求」。
+     * 修復問題型不產出測試報告（dev_07b / del_testrpt / svn_004）、
+     * 也不需要更新程式更新紀錄單（svn_003_updrec）與程式測試報告單（svn_003_testrec）。
+     */
+    private boolean bugFix;
+
     // ── Constructors ──────────────────────────────────────────────────────────
 
     public RQData() {}
@@ -101,6 +108,9 @@ public class RQData {
 
     public String getArchivedAt() { return archivedAt; }
     public void setArchivedAt(String archivedAt) { this.archivedAt = archivedAt; }
+
+    public boolean isBugFix() { return bugFix; }
+    public void setBugFix(boolean bugFix) { this.bugFix = bugFix; }
 
     // ── 便利方法 ──────────────────────────────────────────────────────────────
 

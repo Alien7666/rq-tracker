@@ -54,7 +54,7 @@ public final class ProgressCalc {
 
         String vName = versions.get(vIdx).getName();
         List<TaskDef> tasks = new ArrayList<>();
-        tasks.addAll(TaskFactory.versionDevTasks(vIdx));
+        tasks.addAll(TaskFactory.versionDevTasks(vIdx, rq));
         tasks.addAll(TaskFactory.versionDeliverables(vIdx, rq, vName, downloadsRoot));
         tasks.addAll(TaskFactory.versionSVNTasks(vIdx, vName, rq, svnRoot));
 
@@ -72,7 +72,7 @@ public final class ProgressCalc {
 
         for (int i = 0; i < versions.size(); i++) {
             String vName = versions.get(i).getName();
-            tasks.addAll(TaskFactory.versionDevTasks(i));
+            tasks.addAll(TaskFactory.versionDevTasks(i, rq));
             tasks.addAll(TaskFactory.versionDeliverables(i, rq, vName, downloadsRoot));
             tasks.addAll(TaskFactory.versionSVNTasks(i, vName, rq, svnRoot));
         }

@@ -2,8 +2,12 @@ package com.rqtracker.ui.dialog;
 
 import com.rqtracker.model.RQData;
 import com.rqtracker.model.RQVersion;
+import com.rqtracker.model.VersionPreset;
+import com.rqtracker.service.AppConfig;
+import com.rqtracker.util.PathUtils;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -34,13 +38,14 @@ public class NewEditRQDialog {
 
     private final TextField rqIdField;
     private final TextField projectNumField;
+    private final CheckBox  bugFixCheck;
     private final VBox      versionList;
-    private final List<TextField> versionFields = new ArrayList<>();
+    private final List<ComboBox<VersionPreset>> versionFields = new ArrayList<>();
 
-    /** 送出回呼：(rqId, projectNum, versionNames) */
+    /** 送出回呼：(rqId, projectNum, versionNames, bugFix) */
     private Consumer<Result> onSubmit;
 
-    public record Result(String rqId, String projectNum, List<String> versionNames) {}
+    public record Result(String rqId, String projectNum, List<String> versionNames, boolean bugFix) {}
 
     /**
      * @param owner    父視窗
@@ -92,6 +97,19 @@ public class NewEditRQDialog {
 
         VBox projGroup = new VBox(4, projLabel, projHint, projectNumField);
 
+        // ── RQ 狀態：修復問題 ────────────────────────────────────────────
+        Label statusLabel = new Label("RQ 狀態");
+        statusLabel.getStyleClass().add("form-label");
+        Label statusHint = new Label("勾選後此 RQ 視為「修復問題」：跳過測試報告（dev/del/svn_004）以及 SVN 003_維護服務紀錄單下的程式更新紀錄單與程式測試報告單；其餘流程不變。");
+        statusHint.getStyleClass().add("form-hint");
+        statusHint.setWrapText(true);
+
+        bugFixCheck = new CheckBox("修復問題（非新需求實現）");
+        bugFixCheck.getStyleClass().add("form-check");
+        if (isEdit) bugFixCheck.setSelected(existing.isBugFix());
+
+        VBox statusGroup = new VBox(4, statusLabel, statusHint, bugFixCheck);
+
         // ── 版本清單 ─────────────────────────────────────────────────────
         Label verLabel = new Label("版本名稱");
         verLabel.getStyleClass().add("form-label");
@@ -105,7 +123,7 @@ public class NewEditRQDialog {
             addVersionRow(""); // 預設一個空版本欄位
         }
 
-        Label verHint = new Label("每行輸入一個版本名稱（例：網路郵局中文版）。至少新增一個版本才能追蹤進度。");
+        Label verHint = new Label("從下拉選單選擇版本（清單可至「設定 → 版本管理」維護）。至少新增一個版本才能追蹤進度。");
         verHint.getStyleClass().add("form-hint");
         verHint.setWrapText(true);
 
@@ -116,7 +134,7 @@ public class NewEditRQDialog {
         VBox verGroup = new VBox(6, verLabel, verHint, versionList, addVerBtn);
 
         // ── 主體 ────────────────────────────────────────────────────────
-        VBox body = new VBox(16, rqIdGroup, projGroup, verGroup);
+        VBox body = new VBox(16, rqIdGroup, projGroup, statusGroup, verGroup);
         body.getStyleClass().add("modal-body");
         body.setPadding(new Insets(20, 24, 16, 24));
 
@@ -193,28 +211,57 @@ public class NewEditRQDialog {
     // ──────────────────────────────────────────────────────────────
 
     private void addVersionRow(String initial) {
-        TextField field = new TextField(initial);
-        field.getStyleClass().add("form-input");
-        field.setPromptText("例：網路郵局中文版 pstID");
-        field.setPrefWidth(380);
+        List<VersionPreset> presets = AppConfig.getInstance().getVersionPresets();
+
+        ComboBox<VersionPreset> combo = new ComboBox<>(FXCollections.observableArrayList(presets));
+        combo.setEditable(false);
+        combo.getStyleClass().add("form-input");
+        combo.setPromptText("請選擇版本…");
+        combo.setPrefWidth(380);
+        combo.setMaxWidth(Double.MAX_VALUE);
+
+        javafx.util.Callback<ListView<VersionPreset>, ListCell<VersionPreset>> cellFactory = lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(VersionPreset item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    String d = item.getDisplayName() == null ? "" : item.getDisplayName();
+                    String v = item.getVid() == null ? "" : item.getVid();
+                    setText(d.isBlank() ? v : d + "  (" + v + ")");
+                }
+            }
+        };
+        combo.setCellFactory(cellFactory);
+        combo.setButtonCell(cellFactory.call(null));
+
+        if (initial != null && !initial.isBlank()) {
+            String vid = PathUtils.versionId(initial);
+            presets.stream()
+                .filter(p -> p.getVid() != null && p.getVid().equalsIgnoreCase(vid))
+                .findFirst()
+                .ifPresent(combo::setValue);
+        }
 
         Button removeBtn = new Button("－");
         removeBtn.getStyleClass().add("btn-remove-ver");
         removeBtn.setOnAction(e -> {
-            int idx = versionFields.indexOf(field);
+            int idx = versionFields.indexOf(combo);
             if (idx >= 0) {
                 versionFields.remove(idx);
                 versionList.getChildren().remove(idx);
             }
         });
 
-        HBox row = new HBox(8, field, removeBtn);
+        HBox row = new HBox(8, combo, removeBtn);
         row.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(combo, Priority.ALWAYS);
 
-        versionFields.add(field);
+        versionFields.add(combo);
         versionList.getChildren().add(row);
 
-        field.requestFocus();
+        combo.requestFocus();
     }
 
     private void handleSubmit() {
@@ -227,12 +274,13 @@ public class NewEditRQDialog {
         String projectNum = projectNumField.getText().trim();
 
         List<String> versions = versionFields.stream()
-            .map(f -> f.getText().trim())
-            .filter(s -> !s.isBlank())
+            .map(ComboBox::getValue)
+            .filter(p -> p != null && p.getVid() != null && !p.getVid().isBlank())
+            .map(VersionPreset::toCombinedName)
             .toList();
 
         if (onSubmit != null) {
-            onSubmit.accept(new Result(rqId, projectNum, versions));
+            onSubmit.accept(new Result(rqId, projectNum, versions, bugFixCheck.isSelected()));
         }
         dialog.close();
     }

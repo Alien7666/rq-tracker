@@ -353,7 +353,7 @@ public class RQContentPanel extends VBox {
         RQVersion ver = rq.getVersions().get(vIdx);
         String vName = ver.getName();
 
-        List<TaskDef> devTasks = TaskFactory.versionDevTasks(vIdx);
+        List<TaskDef> devTasks = TaskFactory.versionDevTasks(vIdx, rq);
         List<TaskDef> delTasks = TaskFactory.versionDeliverables(vIdx, rq, vName, dlRoot);
         List<TaskDef> svnTasks = TaskFactory.versionSVNTasks(vIdx, vName, rq, svnRoot);
 
@@ -581,7 +581,7 @@ public class RQContentPanel extends VBox {
         String svnRoot = appConfig.getSvnRoot();
 
         SectionTimestamp.update(rq,
-            i -> TaskFactory.versionDevTasks(i),
+            i -> TaskFactory.versionDevTasks(i, rq),
             i -> TaskFactory.versionSVNTasks(i, rq.getVersions().get(i).getName(), rq, svnRoot),
             i -> TaskFactory.versionDeliverables(i, rq, rq.getVersions().get(i).getName(), dlRoot),
             TaskFactory.finalDeliveryTasks(rq, dlRoot),

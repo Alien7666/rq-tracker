@@ -108,7 +108,9 @@ class TaskFactoryTest {
         List<String> keys = TaskFactory.versionSVNTasks(0, "網路郵局中文版 pstID", rq)
             .stream().map(TaskDef::getKey).toList();
         assertEquals(List.of(
-            "v0_svn_005", "v0_svn_004", "v0_svn_zap1", "v0_svn_zap2", "v0_svn_sbom"
+            "v0_svn_005", "v0_svn_004", "v0_svn_zap1",
+            "v0_svn_zap1_excl", "v0_svn_zap1_pentest", "v0_svn_zap1_pentestcsv",
+            "v0_svn_zap2", "v0_svn_sbom"
         ), keys);
     }
 
@@ -154,7 +156,10 @@ class TaskFactoryTest {
     void sharedSVNTasks_keys() {
         List<String> keys = TaskFactory.sharedSVNTasks(rq)
             .stream().map(TaskDef::getKey).toList();
-        assertEquals(List.of("svn_003_doc", "svn_003_updrec", "svn_003_testrec"), keys);
+        assertEquals(List.of(
+            "svn_003_doc", "svn_003_updrec", "svn_003_testrec",
+            "svn_003_sbom", "svn_003_security"
+        ), keys);
     }
 
     @Test
@@ -165,9 +170,40 @@ class TaskFactoryTest {
     }
 
     @Test
+    void sharedSVNTasks_includeSbomAndSecurityReportWithModificationTimeCheck() {
+        List<TaskDef> tasks = TaskFactory.sharedSVNTasks(rq);
+
+        TaskDef sbom = tasks.stream()
+            .filter(t -> t.getKey().equals("svn_003_sbom"))
+            .findFirst()
+            .orElseThrow();
+        TaskDef securityReport = tasks.stream()
+            .filter(t -> t.getKey().equals("svn_003_security"))
+            .findFirst()
+            .orElseThrow();
+
+        assertAll(
+            () -> assertEquals("軟體物料清單.doc", sbom.getFilename()),
+            () -> assertTrue(sbom.isCheckModTime()),
+            () -> assertEquals("安全測試報告.doc", securityReport.getFilename()),
+            () -> assertTrue(securityReport.isCheckModTime())
+        );
+    }
+
+    @Test
     void sharedSVNTasks_folderContainsProjectAndRqId() {
         TaskDef doc = TaskFactory.sharedSVNTasks(rq).get(0);
         assertTrue(doc.getFolder().contains("POSMS_RQ100051742_網路郵局新增欄位"));
         assertTrue(doc.getFolder().contains("003_維護服務紀錄單"));
+    }
+
+    @Test
+    void sharedSVNTasks_bugFixKeepsNewMaintenanceDocuments() {
+        rq.setBugFix(true);
+
+        List<String> keys = TaskFactory.sharedSVNTasks(rq)
+            .stream().map(TaskDef::getKey).toList();
+
+        assertEquals(List.of("svn_003_doc", "svn_003_sbom", "svn_003_security"), keys);
     }
 }

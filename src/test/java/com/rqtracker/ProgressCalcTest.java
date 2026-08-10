@@ -77,8 +77,8 @@ class ProgressCalcTest {
     void calcVersionProgress_noChecks_doneIsZero() {
         ProgressCalc.Progress p = ProgressCalc.calcVersionProgress(rq, 0);
         assertEquals(0, p.done());
-        // version 任務 = dev(10) + deliverables(8) + svn(5) = 23
-        assertEquals(23, p.total());
+        // version 任務 = dev(10) + deliverables(8) + svn(8) = 26
+        assertEquals(26, p.total());
     }
 
     @Test

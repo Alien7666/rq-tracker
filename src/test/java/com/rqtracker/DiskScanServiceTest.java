@@ -7,7 +7,11 @@ import com.rqtracker.service.AppConfig;
 import com.rqtracker.service.DiskScanService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Map;
 
@@ -67,5 +71,25 @@ class DiskScanServiceTest {
         assertTrue(rq.isChecked("v0_dev_03"));
         assertTrue(rq.isChecked("sf_01"));
         assertTrue(rq.isChecked("sf_02"));
+    }
+
+    @Test
+    void maintenanceDocuments_useModificationTimeAfterRqCreation(@TempDir Path tempDir) throws Exception {
+        long rqCreatedAt = System.currentTimeMillis() - 60_000;
+        Path sbom = Files.createFile(tempDir.resolve("軟體物料清單.doc"));
+        Path securityReport = Files.createFile(tempDir.resolve("安全測試報告.doc"));
+
+        Files.setLastModifiedTime(sbom, FileTime.fromMillis(rqCreatedAt + 1_000));
+        Files.setLastModifiedTime(securityReport, FileTime.fromMillis(rqCreatedAt - 1_000));
+
+        TaskResult sbomResult = diskScanService.checkFileExists(
+            tempDir.toString(), "軟體物料清單.doc", rqCreatedAt);
+        TaskResult securityResult = diskScanService.checkFileExists(
+            tempDir.toString(), "安全測試報告.doc", rqCreatedAt);
+
+        assertAll(
+            () -> assertEquals(TaskResult.ScanState.FILE, sbomResult.state()),
+            () -> assertEquals(TaskResult.ScanState.STALE, securityResult.state())
+        );
     }
 }

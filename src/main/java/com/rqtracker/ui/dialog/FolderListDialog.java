@@ -310,7 +310,7 @@ public class FolderListDialog {
         String svnRoot = appConfig.getSvnRoot();
 
         SectionTimestamp.update(rq,
-            i -> TaskFactory.versionDevTasks(i),
+            i -> TaskFactory.versionDevTasks(i, rq),
             i -> TaskFactory.versionSVNTasks(i, rq.getVersions().get(i).getName(), rq, svnRoot),
             i -> TaskFactory.versionDeliverables(i, rq, rq.getVersions().get(i).getName(), dlRoot),
             TaskFactory.finalDeliveryTasks(rq, dlRoot),

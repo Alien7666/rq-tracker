@@ -1,28 +1,21 @@
 package com.rqtracker.util;
 
+import com.rqtracker.service.AppConfig;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 路徑與名稱工具函數（完整移植自 HTML 版）。
  * 所有方法皆為無狀態靜態方法。
+ * SBOM 系統資料夾對應表已搬至 AppConfig.versionPresets，由設定 → 版本管理維護。
  */
 public final class PathUtils {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final Pattern RQ_NUMBER_PATTERN  = Pattern.compile("(RQ\\d+)", Pattern.CASE_INSENSITIVE);
-
-    // SBOM 系統資料夾映射（vid → 資料夾名稱）
-    private static final Map<String, String> SBOM_SYSTEM_MAP = Map.of(
-        "pstID",   "1_網路郵局中文版",
-        "pstEN",   "2_網路郵局英文版",
-        "pstacce", "3_網路郵局友善專區",
-        "pstsam",  "4_網路郵局後台",
-        "pstmail", "8_郵件查詢前台"
-    );
 
     private PathUtils() {}
 
@@ -69,11 +62,12 @@ public final class PathUtils {
     }
 
     /**
-     * vid 對應的 SBOM 系統資料夾名稱（對應 HTML 的 sbomSystemFolder(vid)）。
-     * 例："pstID" → "1_網路郵局中文版"
+     * vid 對應的 SBOM 系統資料夾名稱。
+     * 查詢順序：AppConfig.versionPresets → fallback "{系統_xxx}"。
      */
     public static String sbomSystemFolder(String vid) {
-        return SBOM_SYSTEM_MAP.getOrDefault(vid, "{系統_" + vid + "}");
+        String folder = AppConfig.getInstance().lookupSbomFolder(vid);
+        return (folder == null || folder.isBlank()) ? "{系統_" + vid + "}" : folder;
     }
 
     /**

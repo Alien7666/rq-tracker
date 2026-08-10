@@ -4,9 +4,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rqtracker.model.VersionPreset;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -61,11 +64,17 @@ public class AppConfig {
     /** 使用者選擇略過的版本號 */
     private String skipVersion = "";
 
+    /** 主題模式："dark" 或 "light"（預設 dark） */
+    private String themeMode = "dark";
+
     /**
      * 三欄 SplitPane 分隔位置（全域共用，所有 RQ 與版本卡片共享）。
      * 預設 1:4.5:4.5 即 10%/45%/45%。
      */
     private double[] splitPositions = { 0.10, 0.55 };
+
+    /** 版本預設清單（vid → 顯示名 + SBOM 資料夾）。首次啟動會 seed 預設值。 */
+    private List<VersionPreset> versionPresets;
 
     // ── 靜態載入 ──────────────────────────────────────────────────────────────
 
@@ -96,10 +105,30 @@ public class AppConfig {
             save();
             LOG.info("svnRoot 已自動修正為：" + svnRoot);
         }
+        // 首次啟動 seed 版本預設清單（搬移自原本寫死於 PathUtils 的 SBOM_SYSTEM_MAP）
+        if (versionPresets == null || versionPresets.isEmpty()) {
+            versionPresets = defaultVersionPresets();
+            save();
+            LOG.info("已 seed 預設版本清單（" + versionPresets.size() + " 筆）");
+        }
+    }
+
+    /** 預設 5 筆中華郵政常用版本（原寫死於 PathUtils.SBOM_SYSTEM_MAP）。 */
+    private static List<VersionPreset> defaultVersionPresets() {
+        List<VersionPreset> list = new ArrayList<>();
+        list.add(new VersionPreset("pstID",   "網路郵局中文版",     "1_網路郵局中文版"));
+        list.add(new VersionPreset("pstEN",   "網路郵局英文版",     "2_網路郵局英文版"));
+        list.add(new VersionPreset("pstacce", "網路郵局友善專區",   "3_網路郵局友善專區"));
+        list.add(new VersionPreset("pstsam",  "網路郵局後台",       "4_網路郵局後台"));
+        list.add(new VersionPreset("pstmail", "郵件查詢前台",       "8_郵件查詢前台"));
+        return list;
     }
 
     public static AppConfig getInstance() {
-        if (instance == null) instance = new AppConfig();
+        if (instance == null) {
+            instance = new AppConfig();
+            instance.versionPresets = defaultVersionPresets();
+        }
         return instance;
     }
 
@@ -178,6 +207,17 @@ public class AppConfig {
     public String getSkipVersion() { return skipVersion != null ? skipVersion : ""; }
     public void setSkipVersion(String ver) { this.skipVersion = ver; }
 
+    public String getThemeMode() {
+        return (themeMode != null && ("light".equalsIgnoreCase(themeMode) || "dark".equalsIgnoreCase(themeMode)))
+            ? themeMode.toLowerCase() : "dark";
+    }
+    public void setThemeMode(String mode) {
+        this.themeMode = ("light".equalsIgnoreCase(mode)) ? "light" : "dark";
+        save();
+    }
+    @JsonIgnore
+    public boolean isLightTheme() { return "light".equalsIgnoreCase(getThemeMode()); }
+
     /**
      * 取得三欄 SplitPane 分隔位置（永遠回傳合法值 + 防禦性拷貝）。
      * 若儲存值為 null/長度錯誤/越界/反序則回退預設 {0.10, 0.55}。
@@ -227,5 +267,29 @@ public class AppConfig {
     public String getSvnRootSlash() {
         if (svnRoot == null) return "C:\\SVN\\新系統開發\\";
         return svnRoot.endsWith("\\") ? svnRoot : svnRoot + "\\";
+    }
+
+    // ── 版本預設清單 ──────────────────────────────────────────────────────────
+
+    public List<VersionPreset> getVersionPresets() {
+        if (versionPresets == null) versionPresets = defaultVersionPresets();
+        return versionPresets;
+    }
+
+    public void setVersionPresets(List<VersionPreset> presets) {
+        this.versionPresets = (presets == null) ? new ArrayList<>() : new ArrayList<>(presets);
+        save();
+    }
+
+    /** 依 vid 查 SBOM 資料夾名稱（不分大小寫），找不到回傳 null。 */
+    @JsonIgnore
+    public String lookupSbomFolder(String vid) {
+        if (vid == null) return null;
+        for (VersionPreset p : getVersionPresets()) {
+            if (p.getVid() != null && p.getVid().equalsIgnoreCase(vid)) {
+                return p.getSbomFolder();
+            }
+        }
+        return null;
     }
 }
