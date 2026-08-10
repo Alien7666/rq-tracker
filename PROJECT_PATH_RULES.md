@@ -149,8 +149,8 @@ SVN3 = SVN\003_維護服務紀錄單\
 | `svn_003_doc` checkModTime | `SVN3` | `中華郵政_網路郵局系統_廠商交付程式說明({rqNum}).docx` |
 | `svn_003_updrec` ⚠跳bugFix | `SVN3` | `{proj}_{rqNum}_開放系統程式更新紀錄單_Vx.x.docx` |
 | `svn_003_testrec` ⚠跳bugFix | `SVN3` | `{proj}_{rqNum}_開放系統程式測試報告單_Vx.x.docx` |
-| `svn_003_sbom` checkModTime | `SVN3` | `軟體物料清單.doc` |
-| `svn_003_security` checkModTime | `SVN3` | `安全測試報告.doc` |
+| `svn_003_sbom` checkModTime | `SVN3` | `軟體物料清單_{rqNum}.docx` |
+| `svn_003_security` checkModTime | `SVN3` | `安全測試報告_{rqNum}.docx` |
 
 **範例**
 
@@ -158,8 +158,8 @@ SVN3 = SVN\003_維護服務紀錄單\
 svn_003_doc     …\003_維護服務紀錄單\  中華郵政_網路郵局系統_廠商交付程式說明(RQ100051742).docx
 svn_003_updrec  …\003_維護服務紀錄單\  POSMS_RQ100051742_開放系統程式更新紀錄單_Vx.x.docx
 svn_003_testrec …\003_維護服務紀錄單\  POSMS_RQ100051742_開放系統程式測試報告單_Vx.x.docx
-svn_003_sbom    …\003_維護服務紀錄單\  軟體物料清單.doc
-svn_003_security …\003_維護服務紀錄單\ 安全測試報告.doc
+svn_003_sbom    …\003_維護服務紀錄單\  軟體物料清單_RQ100051742.docx
+svn_003_security …\003_維護服務紀錄單\ 安全測試報告_RQ100051742.docx
 ```
 
 ---

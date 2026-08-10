@@ -76,16 +76,16 @@ class DiskScanServiceTest {
     @Test
     void maintenanceDocuments_useModificationTimeAfterRqCreation(@TempDir Path tempDir) throws Exception {
         long rqCreatedAt = System.currentTimeMillis() - 60_000;
-        Path sbom = Files.createFile(tempDir.resolve("軟體物料清單.doc"));
-        Path securityReport = Files.createFile(tempDir.resolve("安全測試報告.doc"));
+        Path sbom = Files.createFile(tempDir.resolve("軟體物料清單_RQ100051742.docx"));
+        Path securityReport = Files.createFile(tempDir.resolve("安全測試報告_RQ100051742.docx"));
 
         Files.setLastModifiedTime(sbom, FileTime.fromMillis(rqCreatedAt + 1_000));
         Files.setLastModifiedTime(securityReport, FileTime.fromMillis(rqCreatedAt - 1_000));
 
         TaskResult sbomResult = diskScanService.checkFileExists(
-            tempDir.toString(), "軟體物料清單.doc", rqCreatedAt);
+            tempDir.toString(), "軟體物料清單_RQ100051742.docx", rqCreatedAt);
         TaskResult securityResult = diskScanService.checkFileExists(
-            tempDir.toString(), "安全測試報告.doc", rqCreatedAt);
+            tempDir.toString(), "安全測試報告_RQ100051742.docx", rqCreatedAt);
 
         assertAll(
             () -> assertEquals(TaskResult.ScanState.FILE, sbomResult.state()),

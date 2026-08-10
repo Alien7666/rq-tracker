@@ -299,13 +299,13 @@ public final class TaskFactory {
 
         tasks.add(TaskDef.builder("svn_003_sbom", "軟體物料清單 更新")
             .folder(SVN)
-            .filename("軟體物料清單.doc")
+            .filename("軟體物料清單_" + rqNum + ".docx")
             .checkModTime()
             .build());
 
         tasks.add(TaskDef.builder("svn_003_security", "安全測試報告 更新")
             .folder(SVN)
-            .filename("安全測試報告.doc")
+            .filename("安全測試報告_" + rqNum + ".docx")
             .checkModTime()
             .build());
 

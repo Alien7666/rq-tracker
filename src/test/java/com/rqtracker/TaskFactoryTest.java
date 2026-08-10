@@ -170,7 +170,7 @@ class TaskFactoryTest {
     }
 
     @Test
-    void sharedSVNTasks_includeSbomAndSecurityReportWithModificationTimeCheck() {
+    void sharedSVNTasks_includeRqNumberInMaintenanceDocumentNames() {
         List<TaskDef> tasks = TaskFactory.sharedSVNTasks(rq);
 
         TaskDef sbom = tasks.stream()
@@ -183,9 +183,9 @@ class TaskFactoryTest {
             .orElseThrow();
 
         assertAll(
-            () -> assertEquals("軟體物料清單.doc", sbom.getFilename()),
+            () -> assertEquals("軟體物料清單_RQ100051742.docx", sbom.getFilename()),
             () -> assertTrue(sbom.isCheckModTime()),
-            () -> assertEquals("安全測試報告.doc", securityReport.getFilename()),
+            () -> assertEquals("安全測試報告_RQ100051742.docx", securityReport.getFilename()),
             () -> assertTrue(securityReport.isCheckModTime())
         );
     }
