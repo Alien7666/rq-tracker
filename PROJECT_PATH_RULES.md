@@ -54,7 +54,7 @@ SBOM_BASE   = {svnRoot}\9_文件\99_共用文件\18.軟體物料清單(SBOM)\2_�
 | key | 資料夾 folder | 檔名 filename |
 |-----|--------------|--------------|
 | `v{n}_del_code` | `ROOT\{td}_{rqNum}\{vid}\` | （checkHasFiles，比對改動程式清單） |
-| `v{n}_del_fortify` | `ROOT\安全性文件\{vid}\` | `{rqNum}_Fortify_{vid}_OWASPAPITop10_{td}.doc` |
+| `v{n}_del_fortify` | `ROOT\安全性文件\{vid}\` | `{rqNum}_Fortify_{vid}_OWASPAPITop10_{td}.docx` |
 | `v{n}_del_testrpt` ⚠跳bugFix | `ROOT\測試報告\{vid}\` | `中華郵政_網路郵局系統_測試報告_{rqNum}_{vid}.xlsx` |
 | `v{n}_del_vulnscan` ⚠當天 | `ROOT\安全性文件\{vid}\` | `廠商系統弱點掃描_{vid}_{td}.pdf` |
 | `v{n}_del_zapexcl` ⚠當天 | `ROOT\安全性文件\{vid}\` | `ZAP弱點掃描排除說明_{vid}.xlsx` |
@@ -67,7 +67,7 @@ SBOM_BASE   = {svnRoot}\9_文件\99_共用文件\18.軟體物料清單(SBOM)\2_�
 ```
 del_code      D:\Systex\RQ100051742_新增推薦員工欄位\20260605_RQ100051742\pstID\
 del_fortify   D:\Systex\RQ100051742_新增推薦員工欄位\安全性文件\pstID\
-              RQ100051742_Fortify_pstID_OWASPAPITop10_20260605.doc
+              RQ100051742_Fortify_pstID_OWASPAPITop10_20260605.docx
 del_testrpt   D:\Systex\RQ100051742_新增推薦員工欄位\測試報告\pstID\
               中華郵政_網路郵局系統_測試報告_RQ100051742_pstID.xlsx
 del_vulnscan  D:\Systex\RQ100051742_新增推薦員工欄位\安全性文件\pstID\
@@ -88,7 +88,7 @@ del_sbom      D:\Systex\RQ100051742_新增推薦員工欄位\SBOM\pstID\
 
 | key | 資料夾 folder | 檔名 filename |
 |-----|--------------|--------------|
-| `v{n}_svn_005` | `SVN\005_廠商弱掃報告\` | `{rqNum}_Fortify_{vid}_OWASPAPITop10_{td}.doc` |
+| `v{n}_svn_005` | `SVN\005_廠商弱掃報告\` | `{rqNum}_Fortify_{vid}_OWASPAPITop10_{td}.docx` |
 | `v{n}_svn_004` ⚠跳bugFix | `SVN\004_測試報告\` | `中華郵政_網路郵局系統_測試報告_{rqNum}_{vid}.xlsx` |
 | `v{n}_svn_zap1` ⚠當天 | `ZAP_BASE\1_中華郵政\{sbomFolder}\{td}\` | `中華郵政_廠商系統弱點掃描_{vid}_{td}.pdf` |
 | `v{n}_svn_zap1_excl` ⚠當天 | `ZAP_BASE\1_中華郵政\{sbomFolder}\{td}\` | `ZAP弱點掃描排除說明_{vid}.xlsx` |
@@ -101,7 +101,7 @@ del_sbom      D:\Systex\RQ100051742_新增推薦員工欄位\SBOM\pstID\
 
 ```
 svn_005   C:\SVN\新系統開發\10_增修維護階段\變更需求單\POSMS_RQ100051742_新增推薦員工欄位\005_廠商弱掃報告\
-          RQ100051742_Fortify_pstID_OWASPAPITop10_20260605.doc
+          RQ100051742_Fortify_pstID_OWASPAPITop10_20260605.docx
 svn_004   C:\SVN\新系統開發\10_增修維護階段\變更需求單\POSMS_RQ100051742_新增推薦員工欄位\004_測試報告\
           中華郵政_網路郵局系統_測試報告_RQ100051742_pstID.xlsx
 svn_zap1  C:\SVN\新系統開發\9_文件\99_共用文件\19.弱掃及滲透測試(ZAP)\1_中華郵政\1_網路郵局中文版\20260605\

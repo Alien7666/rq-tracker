@@ -4,6 +4,7 @@ import com.rqtracker.model.RQData;
 import com.rqtracker.model.RQVersion;
 import com.rqtracker.model.TaskDef;
 import com.rqtracker.service.TaskFactory;
+import com.rqtracker.util.PathUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -97,6 +98,22 @@ class TaskFactoryTest {
             .stream().filter(t -> t.getKey().equals("v0_del_fortify")).findFirst().orElseThrow();
         // 資料夾路徑應包含 rq id（winSafeName 後的版本）
         assertTrue(fortify.getFolder().contains("RQ100051742_網路郵局新增欄位"));
+    }
+
+    @Test
+    void fortifyDocuments_useDocxWithoutChangingFilenamePattern() {
+        String expected = "RQ100051742_Fortify_pstID_OWASPAPITop10_"
+            + PathUtils.todayDate() + ".docx";
+
+        TaskDef deliveryFortify = TaskFactory.versionDeliverables(0, rq, "網路郵局中文版 pstID")
+            .stream().filter(t -> t.getKey().equals("v0_del_fortify")).findFirst().orElseThrow();
+        TaskDef svnFortify = TaskFactory.versionSVNTasks(0, "網路郵局中文版 pstID", rq)
+            .stream().filter(t -> t.getKey().equals("v0_svn_005")).findFirst().orElseThrow();
+
+        assertAll(
+            () -> assertEquals(expected, deliveryFortify.getFilename()),
+            () -> assertEquals(expected, svnFortify.getFilename())
+        );
     }
 
     // ────────────────────────────────────────

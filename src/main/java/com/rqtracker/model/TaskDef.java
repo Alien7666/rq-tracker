@@ -21,7 +21,7 @@ public class TaskDef {
     /** 對應的資料夾路徑（可 null），例："D:\\Systex\\RQ100051742_xxx\\" */
     private final String folder;
 
-    /** 對應的檔案名稱（可 null），例："RQ100051742_Fortify_pstID_OWASPAPITop10_20260416.doc" */
+    /** 對應的檔案名稱（可 null），例："RQ100051742_Fortify_pstID_OWASPAPITop10_20260416.docx" */
     private final String filename;
 
     /** 代碼根路徑（checkHasFiles 任務用），例："D:\\Systex\\" */

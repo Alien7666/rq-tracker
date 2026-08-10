@@ -93,7 +93,7 @@ public final class TaskFactory {
         // del_fortify
         tasks.add(TaskDef.builder(p + "fortify", "Fortify OWASP 報告")
             .folder(ROOT + "安全性文件\\" + vid + "\\")
-            .filename(rqNum + "_Fortify_" + vid + "_OWASPAPITop10_" + td + ".doc")
+            .filename(rqNum + "_Fortify_" + vid + "_OWASPAPITop10_" + td + ".docx")
             .build());
 
         // del_testrpt（修復問題型跳過）
@@ -165,7 +165,7 @@ public final class TaskFactory {
 
         tasks.add(TaskDef.builder(p + "005", "放入 Fortify 報告")
             .folder(SVN + "005_廠商弱掃報告\\")
-            .filename(rqNum + "_Fortify_" + vid + "_OWASPAPITop10_" + td + ".doc")
+            .filename(rqNum + "_Fortify_" + vid + "_OWASPAPITop10_" + td + ".docx")
             .build());
 
         // svn_004（修復問題型跳過）
