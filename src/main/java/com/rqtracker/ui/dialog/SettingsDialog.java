@@ -2,6 +2,7 @@ package com.rqtracker.ui.dialog;
 
 import com.rqtracker.model.VersionPreset;
 import com.rqtracker.service.AppConfig;
+import com.rqtracker.ui.component.CommitOnFocusLostTextFieldTableCell;
 import com.rqtracker.util.DialogHelper;
 
 import javafx.application.Platform;
@@ -12,7 +13,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
@@ -172,6 +172,10 @@ public class SettingsDialog {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
                 dialog.close(); e.consume();
+            } else if (e.getCode() == KeyCode.ENTER
+                    && versionPresetTable.getEditingCell() != null) {
+                // 交給目前的 TableCell 提交，不可搶先儲存並關閉整個設定視窗。
+                return;
             } else if (e.getCode() == KeyCode.ENTER && !(scene.getFocusOwner() instanceof TextArea)) {
                 handleSave(); e.consume();
             }
@@ -242,19 +246,19 @@ public class SettingsDialog {
         TableColumn<VersionPreset, String> vidCol = new TableColumn<>("vid");
         vidCol.setPrefWidth(120);
         vidCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getVid(), "")));
-        vidCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        vidCol.setCellFactory(column -> new CommitOnFocusLostTextFieldTableCell<>());
         vidCol.setOnEditCommit(e -> e.getRowValue().setVid(e.getNewValue() == null ? "" : e.getNewValue().trim()));
 
         TableColumn<VersionPreset, String> nameCol = new TableColumn<>("顯示名");
         nameCol.setPrefWidth(160);
         nameCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getDisplayName(), "")));
-        nameCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        nameCol.setCellFactory(column -> new CommitOnFocusLostTextFieldTableCell<>());
         nameCol.setOnEditCommit(e -> e.getRowValue().setDisplayName(e.getNewValue() == null ? "" : e.getNewValue().trim()));
 
         TableColumn<VersionPreset, String> sbomCol = new TableColumn<>("SBOM/ZAP 資料夾");
         sbomCol.setPrefWidth(200);
         sbomCol.setCellValueFactory(c -> new SimpleStringProperty(nvl(c.getValue().getSbomFolder(), "")));
-        sbomCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        sbomCol.setCellFactory(column -> new CommitOnFocusLostTextFieldTableCell<>());
         sbomCol.setOnEditCommit(e -> e.getRowValue().setSbomFolder(e.getNewValue() == null ? "" : e.getNewValue().trim()));
 
         versionPresetTable.getColumns().setAll(vidCol, nameCol, sbomCol);
